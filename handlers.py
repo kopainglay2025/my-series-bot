@@ -417,6 +417,10 @@ def cmd_update_episode_file(call, bot, eid):
 def get_series_keyboard(pending_key: str):
     series = db.get_all_series()
     markup = InlineKeyboardMarkup()
+    pending = utils.get_pending(chat_id, pending_key)  # Нужно передать chat_id, адаптируй
+    suggested = pending.get('parsed', {}).get('series_title')
+    if suggested:
+        markup.add(InlineKeyboardButton(f"Создать новый: {suggested}", callback_data=f"smart_add_new_series:{suggested}:{pending_key}"))
     for s in series:
         markup.add(InlineKeyboardButton(s['title'], callback_data=f"smart_add_to_series:{s['id']}:{pending_key}"))
     markup.row(InlineKeyboardButton("Отмена", callback_data="main_menu"))

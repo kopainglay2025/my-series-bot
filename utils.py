@@ -42,50 +42,74 @@ def get_last_video_msg(chat_id: int):
 
 # Улучшенный парсер имени файла с поддержкой нескольких форматов
 def parse_file_name(file_name: str) -> Dict:
-    patterns = [
-        # S05E07 - Title.ext
-        r'(?i)S(\d{1,2})E(\d{1,2})\s*-\s*(.*)\.\w+$',
-        # Title.S05E16.1080p.mkv
-        r'(?i)\.?S(\d{1,2})E(\d{1,2})\.?(.*)\.\w+$',
-        # Title - 1105 [1080p].mkv (для аниме, предполагаем сезон=1 или ongoing)
-        r'(?i)^.*\s*-\s*(\d{3,4})\s*\[.*\]\.\w+$',  # episode only, season=1
-        # [AnimeRG] Title - 001 [res].mkv
-        r'(?i)^.*\s*-\s*(\d{1,3})\s*\[.*\]\.\w+$',
-        # 1x01 - Title.ext
-        r'(?i)(\d{1,2})x(\d{1,2})\s*-\s*(.*)\.\w+$',
-        # Season 1 Episode 1 Title.ext
-        r'(?i)Season\s*(\d{1,2})\s*Episode\s*(\d{1,2})\s*(.*)\.\w+$',
-        # S01E01.Title.ext
-        r'(?i)S(\d{1,2})E(\d{1,2})\.?(.*)\.\w+$',
-        # 01x01 Title.ext (rare)
-        r'(?i)(\d{1,2})x(\d{1,2})\s*(.*)\.\w+$',
-        # Just number: Title.101.ext (season=1, episode=01)
-        r'(?i)\.?(\d)(\d{2})\.?(.*)\.\w+$',  # как 101 -> S1E01
-        # Breaking.Bad.S05E16.1080p.mkv
-        r'(?i)\.?S(\d{1,2})E(\d{1,2})\.?(.*)\.\w+$',
+    # Список общих "мусорных" паттернов для очистки названия эпизода/сериала
+    junk_patterns = [
+        r'\s*\[.*?\]',  # [1080p], [AnimeRG] и т.д.
+        r'\s*\(.*?\)',  # (WEB-DL 1080p, AAC 2.0)
+        r'\s*WEB-DL|1080p|720p|4K|HDTV|BluRay|HDR|Dolby|Atmos|AAC|AC3|DTS|x264|x265|h264|h265|HEVC|AVC|MP4|MKV|AVI| subs?|eng|rus|multi|season|episode',  # Тех. теги
+        r'\s*\.\w+$',   # .mkv и т.д.
+        r'\s*-\s*$',    # Висящие дефисы
     ]
     
+    # Паттерны для парсинга (расширенные, с приоритетом на русский формат)
+    patterns = [
+        # Русский формат как на скрине: "Название. Сезон N Серия M - Эпизод (junk).ext"
+        r'(?i)^(.*?)\.?\s*Сезон\s*(\d{1,2})\s*Серия\s*(\d{1,2})\s*-\s*(.*?)\s*(\(.*\))?\.?\w*$',
+        # Английский: "Title. Season N Episode M - EpTitle (junk).ext"
+        r'(?i)^(.*?)\.?\s*Season\s*(\d{1,2})\s*Episode\s*(\d{1,2})\s*-\s*(.*?)\s*(\(.*\))?\.?\w*$',
+        # S05E07 - Title (junk).ext
+        r'(?i)^(.*?)\.?\s*S(\d{1,2})E(\d{1,2})\s*-\s*(.*?)(\s*\[.*\]|\s*\(.*\))?\.?\w*$',
+        # Title.S05E16.junk.ext
+        r'(?i)^(.*?)\.S(\d{1,2})E(\d{1,2})\.?(.*?)(\s*\[.*\]|\s*\(.*\))?\.?\w*$',
+        # Title - 1105 [junk].ext (аниме, сезон=1)
+        r'(?i)^(.*?)\s*-\s*(\d{3,4})\s*(\[.*\]|\(.*\))?\.?\w*$',  # episode only, season=1
+        # [Group] Title - 001 [junk].ext
+        r'(?i)^(\[.*\])?\s*(.*?)\s*-\s*(\d{1,3})\s*(\[.*\]|\(.*\))?\.?\w*$',
+        # 1x01 - Title.ext
+        r'(?i)^(.*?)\.?\s*(\d{1,2})x(\d{1,2})\s*-\s*(.*?)(\s*\[.*\]|\s*\(.*\))?\.?\w*$',
+        # Just number: Title.101.junk.ext (season=1, episode=01)
+        r'(?i)^(.*?)\.(\d)(\d{2})\.?(.*?)(\s*\[.*\]|\s*\(.*\))?\.?\w*$',
+    ]
+    
+    clean_name = file_name.strip()
     for pattern in patterns:
-        match = re.search(pattern, file_name)
+        match = re.match(pattern, clean_name)
         if match:
             groups = match.groups()
-            if len(groups) == 3:
-                season = int(groups[0])
-                episode = int(groups[1])
-                title = groups[2].strip() if groups[2] else None
-            elif len(groups) == 2:  # episode only with title
+            # Определяем, что где (в зависимости от паттерна)
+            if len(groups) >= 5:  # Полный русский/английский с junk
+                series_title = groups[0].strip()
+                season = int(groups[1])
+                episode = int(groups[2])
+                ep_title = groups[3].strip() if groups[3] else None
+            elif len(groups) == 4:  # SxxExx без series или с junk
+                series_title = groups[0].strip() if groups[0] else None
+                season = int(groups[1])
+                episode = int(groups[2])
+                ep_title = groups[3].strip() if groups[3] else None
+            elif len(groups) == 3:  # Аниме-style или simple
+                series_title = groups[0].strip() if groups[0] else None
                 season = 1
-                episode = int(groups[0])
-                title = groups[1].strip() if groups[1] else None
-            elif len(groups) == 1:  # episode only
-                season = 1
-                episode = int(groups[0])
-                title = None
+                episode = int(groups[1] if groups[1].isdigit() else groups[2])
+                ep_title = groups[2].strip() if len(groups) > 2 and groups[2] and not groups[2].startswith('[') else None
             else:
                 continue
+            
+            # Очистка series_title и ep_title от junk
+            for junk in junk_patterns:
+                series_title = re.sub(junk, '', series_title or '', flags=re.IGNORECASE).strip() if series_title else None
+                ep_title = re.sub(junk, '', ep_title or '', flags=re.IGNORECASE).strip() if ep_title else None
+            
+            # Если ep_title пустое — дефолт
+            if not ep_title:
+                ep_title = f"Серия {episode}"
+            
             return {
+                'series_title': series_title,
                 'season': season,
                 'episode': episode,
-                'title': title
+                'title': ep_title
             }
-    return {}  # nothing parsed
+    
+    # Если ничего не распарсилось — пустой dict
+    return {}
