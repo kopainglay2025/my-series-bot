@@ -141,17 +141,11 @@ def catch_all_text(message):
         os.remove(path)
         return
 
-def auto_detect_series(file_name: str, parsed: Dict):
-    if 'series_title' in parsed and parsed['series_title']:
-        search_title = parsed['series_title'].lower()
-        for series in db.get_all_series():
-            s_title = series['title'].lower()
-            if search_title == s_title or search_title in s_title or s_title in search_title:
-                return series['id']
-    # Fallback на старый метод
+def auto_detect_series(file_name: str):
+    import re
     clean = re.sub(r'[^a-zA-Zа-яА-Я0-9]', ' ', file_name)
     words = clean.lower().split()
-    important = [w for w in words[:6] if len(w) > 3 and w not in ['1080p', '720p', 'web', 'dl', 'h264', 'x264', 'season', 'episode', 'mkv', 'mp4', 'avi', 'сезон', 'серия']]
+    important = [w for w in words[:6] if len(w) > 3 and w not in ['1080p', '720p', 'web', 'dl', 'h264', 'x264', 'season', 'episode', 'mkv', 'mp4', 'avi']]
     if not important: return None
     for series in db.get_all_series():
         s_words = re.sub(r'[^a-zA-Zа-яА-Я0-9]', ' ', series['title'].lower()).split()
@@ -188,7 +182,7 @@ def finalize_album(media_group_id):
     auto_added = 0
     for f in files:
         if not f["parsed"]: continue
-        guessed = auto_detect_series(f["file_name", f["parsed"]])
+        guessed = auto_detect_series(f["file_name"])
         unique_key = str(uuid4())
         utils.set_pending(chat_id, {
             "action": "smart_add_episode",
@@ -226,7 +220,7 @@ def process_single_file(message):
         bot.reply_to(message, "Не распознано.")
         return
         
-    guessed = filauto_detect_series(file_name, parsed)
+    guessed = auto_detect_series(file_name)
     unique_key = str(uuid4())
     utils.set_pending(message.chat.id, {
         "action": "smart_add_episode",
