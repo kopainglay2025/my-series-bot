@@ -1302,3 +1302,13 @@ Traceback (most recent call last):
     markup.row(InlineKeyboardButton(f"📺 {series_title}", callback_data=f"list_seasons:{db.get_series_id_by_title(series_title)}"))
                                                                                         ^^^^^^^^^^^^^^^^^^^^^^^^^
 AttributeError: module 'db' has no attribute 'get_series_id_by_title'
+2025-12-10 16:24:22,375 ERROR Callback Error
+Traceback (most recent call last):
+  File "C:\Users\Dimondrol\Desktop\bot\bot.py", line 98, in on_callback
+    handlers.process_batch_pick_season(call, bot, int(parts[1]), parts[2])
+  File "C:\Users\Dimondrol\Desktop\bot\handlers.py", line 495, in process_batch_pick_season
+    _finalize_batch(call.message.chat.id, bot, season["series_id"], season_id, pending_key)
+  File "C:\Users\Dimondrol\Desktop\bot\handlers.py", line 480, in _finalize_batch
+    uploaded_at=f["file_info"].date or datetime.datetime.now(datetime.timezone.utc)
+                ^^^^^^^^^^^^^^^^^^^
+AttributeError: 'Video' object has no attribute 'date'

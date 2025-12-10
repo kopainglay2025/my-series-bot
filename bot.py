@@ -85,12 +85,12 @@ def on_callback(call):
             handlers.callback_delete_episode(call, bot, int(data.split(":")[1]))
         elif data.startswith("update_series_title:"):
             handlers.cmd_update_series_title(call, bot, int(data.split(":")[1]))
-        elif data.startswith("update_season_number:"):
-            handlers.cmd_update_season_number(call, bot, int(data.split(":")[1]))
-        elif data.startswith("update_episode_number:"):
-            handlers.cmd_update_episode_number(call, bot, int(data.split(":")[1]))
-        elif data.startswith("update_episode_title:"):
-            handlers.cmd_update_episode_title(call, bot, int(data.split(":")[1]))
+        elif data.startswith(("update_season_number:", "update_season_num:")):
+            handlers.start_update_season_num(call, bot, int(data.split(":")[1]))
+        elif data.startswith(("update_episode_number:", "update_ep_num:")):
+            handlers.start_update_ep_num(call, bot, int(data.split(":")[1]))
+        elif data.startswith(("update_episode_title:", "update_ep_title:")):
+            handlers.start_update_ep_title(call, bot, int(data.split(":")[1]))
         elif data.startswith("update_episode_file:"):
             handlers.cmd_update_episode_file(call, bot, int(data.split(":")[1]))
 
@@ -129,9 +129,20 @@ def catch_all_text(message):
 
     # Обработка обновления файла
     pending = utils.get_pending(message.chat.id)
-    if pending and pending.get("action") == "update_episode_file":
-         bot.reply_to(message, "Пришлите файл, а не текст.")
-         return
+    if pending:
+        action = pending.get("action")
+        if action == "update_episode_file":
+            bot.reply_to(message, "Пришлите файл, а не текст.")
+            return
+        if action == "update_ep_title":
+            handlers.process_update_ep_title(message, bot)
+            return
+        if action == "update_ep_num":
+            handlers.process_update_ep_num(message, bot)
+            return
+        if action == "update_season_num":
+            handlers.process_update_season_num(message, bot)
+            return
 
     if text.lower() == "/backup" and admin.is_admin(message.from_user.id):
         path = f"backup_{int(datetime.datetime.now().timestamp())}.db"
@@ -141,17 +152,41 @@ def catch_all_text(message):
         os.remove(path)
         return
 
+import re
+
 def auto_detect_series(file_name: str):
-    import re
-    clean = re.sub(r'[^a-zA-Zа-яА-Я0-9]', ' ', file_name)
-    words = clean.lower().split()
-    important = [w for w in words[:6] if len(w) > 3 and w not in ['1080p', '720p', 'web', 'dl', 'h264', 'x264', 'season', 'episode', 'mkv', 'mp4', 'avi']]
-    if not important: return None
-    for series in db.get_all_series():
-        s_words = re.sub(r'[^a-zA-Zа-яА-Я0-9]', ' ', series['title'].lower()).split()
-        if any(w in s_words for w in important):
-            return series['id']
-    return None
+    # Приводим к нижнему регистру и убираем мусор
+    clean = re.sub(r'[^a-zа-я0-9\s]', ' ', file_name.lower())
+    words = clean.split()
+    exclude = {
+        '1080p', '720p', 'web', 'dl', 'webdl', 'aac', 'mkv', 'mp4', 'h264', 'x264',
+        'hdrip', 'webrip', 'rip', 'bdrip',
+        'amzn', 'nf', 'kivi', 'dual', 'sub', 'vo', 'rus', 'eng',
+        'сезон', 'серия', 'серии', 'эпизод', 's01', 'e01',
+        'фильм', 'сер', 'эп', 'pilot', 'пилот',
+        # слишком частые русские слова, не относящиеся к названию
+        'новая', 'игра', 'добро', 'добро пожаловать'
+    }
+    tokens = [w for w in words if len(w) > 2 and w not in exclude]
+
+    # Кэш названий сериалов (lower) для более быстрого поиска
+    if not hasattr(auto_detect_series, "_cache"):
+        auto_detect_series._cache = [(s['id'], s['title'].lower()) for s in db.get_all_series()]
+    series_cache = auto_detect_series._cache
+
+    best_id = None
+    best_score = 0
+    for sid, title_lower in series_cache:
+        score = 0
+        for t in tokens:
+            if t in title_lower:
+                score += 2 + len(t) * 0.1  # бонус за длину токена
+        if score > best_score:
+            best_score = score
+            best_id = sid
+
+    # минимальный порог, чтобы не ловить случайные совпадения
+    return best_id if best_score >= 3 else None
 
 def collect_album_file(message):
     media_group_id = message.media_group_id
@@ -249,3 +284,7 @@ def handle_media(message):
 if __name__ == "__main__":
     print("Bot started...")
     bot.infinity_polling()
+
+@bot.message_handler(func=lambda message: message.text == "Главное меню")
+def on_main_menu_button(message):
+    handlers.handle_start(message, bot)

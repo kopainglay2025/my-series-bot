@@ -355,8 +355,13 @@ def callback_edit_season(call, bot: telebot.TeleBot, season_id: int):
     episodes = db.get_episodes(season_id)
     markup = InlineKeyboardMarkup()
     for e in episodes:
-        markup.add(InlineKeyboardButton(f"Серия {e['number']}", callback_data=f"edit_episode:{e['id']}"))
-    markup.row(InlineKeyboardButton("✏️ № Сезона", callback_data=f"update_season_number:{season_id}"),
+        # ИЗМЕНЕНО: Добавляем название эпизода, если оно есть.
+        title_text = e['title'] if e['title'] else ""
+        button_text = f"Серия {e['number']}"
+        if title_text:
+            button_text += f" — {title_text}"
+        markup.add(InlineKeyboardButton(button_text, callback_data=f"edit_episode:{e['id']}")) 
+    markup.row(InlineKeyboardButton("✏️ № Сезона", callback_data=f"update_season_num:{season_id}"),
                InlineKeyboardButton("🗑️ Удалить", callback_data=f"delete_season:{season_id}"))
     markup.row(InlineKeyboardButton("Назад", callback_data=f"edit_series:{db.get_season(season_id)['series_id']}"))
     bot.edit_message_text("Ред. сезона:", chat_id, call.message.message_id, reply_markup=markup)
@@ -364,13 +369,22 @@ def callback_edit_season(call, bot: telebot.TeleBot, season_id: int):
 def callback_edit_episode(call, bot: telebot.TeleBot, episode_id: int):
     chat_id = call.message.chat.id
     episode = db.get_episode(episode_id)
+    if not episode: return
+    
     markup = InlineKeyboardMarkup()
-    markup.row(InlineKeyboardButton("✏️ Номер", callback_data=f"update_episode_number:{episode_id}"),
-               InlineKeyboardButton("✏️ Название", callback_data=f"update_episode_title:{episode_id}"))
+    # ИЗМЕНЕНО: Используем 'update_ep_num' и 'update_ep_title'
+    markup.row(InlineKeyboardButton("✏️ Номер", callback_data=f"update_ep_num:{episode_id}"),
+               InlineKeyboardButton("✏️ Название", callback_data=f"update_ep_title:{episode_id}"))
+    
+    # ... (Остальные кнопки без изменений)
     markup.row(InlineKeyboardButton("📁 Файл", callback_data=f"update_episode_file:{episode_id}"),
                InlineKeyboardButton("🗑️ Удалить", callback_data=f"delete_episode:{episode_id}"))
     markup.row(InlineKeyboardButton("Назад", callback_data=f"edit_season:{episode['season_id']}"))
-    bot.edit_message_text(f"Ред. Серия {episode['number']}:", chat_id, call.message.message_id, reply_markup=markup)
+    
+    title_text = episode['title'] or "Без названия"
+    text = f"Ред. Серия {episode['number']}: <b>{title_text}</b>"
+    
+    bot.edit_message_text(text, chat_id, call.message.message_id, reply_markup=markup, parse_mode="HTML")
 
 def callback_delete_series(call, bot: telebot.TeleBot, series_id: int):
     db.delete_series(series_id)
@@ -442,13 +456,26 @@ def _finalize_smart_add(chat_id, callback_id, bot, series_id, pending_key):
     if not pending or pending.get("action") != "smart_add_episode": return
 
     parsed = pending["parsed"]
+    series = db.get_series(series_id)
+    
+    # Проверка перемещена вверх: если не спарсилось, уведомляем и выходим БЕЗ добавления
+    if not parsed:
+        bot.send_message(chat_id, f"Не удалось распарсить файл: {pending['file_name']}. Добавьте вручную.")
+        return
+
     season_num = parsed.get("season", 1)
     season_id = db.add_season(series_id, season_num)
     
     max_ep = db.get_max_episode_number(season_id)
     ep_num = parsed.get("episode", max_ep + 1)
+    ep_title = parsed.get("title")
+
+    # Всегда пробуем получить корректное русское название с TMDB; если не вышло — оставляем распаршенное
+    tmdb_title = utils.fetch_tmdb_ru_title(series["title"], season_num, ep_num)
+    if tmdb_title:
+        ep_title = tmdb_title
     
-    db.add_episode(season_id, ep_num, parsed.get("title"),
+    db.add_episode(season_id, ep_num, ep_title,
                    file_id=pending["file_id"], file_unique_id=pending["file_unique_id"],
                    file_name=pending["file_name"], file_size=pending["file_size"],
                    uploaded_at=pending["uploaded_at"])
@@ -459,3 +486,69 @@ def _finalize_smart_add(chat_id, callback_id, bot, series_id, pending_key):
 
     remaining = any(v.get("action") == "smart_add_episode" for v in utils.pending_actions.get(chat_id, {}).values())
     if not remaining: send_main(chat_id, bot)
+
+def start_update_ep_title(call, bot: telebot.TeleBot, episode_id: int):
+    chat_id = call.message.chat.id
+    utils.set_pending(chat_id, {"action": "update_ep_title", "episode_id": episode_id})
+    bot.edit_message_text("Введите новое название эпизода:", chat_id, call.message.message_id, reply_markup=None)
+
+def start_update_ep_num(call, bot: telebot.TeleBot, episode_id: int):
+    chat_id = call.message.chat.id
+    utils.set_pending(chat_id, {"action": "update_ep_num", "episode_id": episode_id})
+    bot.edit_message_text("Введите новый номер эпизода:", chat_id, call.message.message_id, reply_markup=None)
+
+def start_update_season_num(call, bot: telebot.TeleBot, season_id: int):
+    chat_id = call.message.chat.id
+    utils.set_pending(chat_id, {"action": "update_season_num", "season_id": season_id})
+    bot.edit_message_text("Введите новый номер сезона:", chat_id, call.message.message_id, reply_markup=None)
+
+# --- ОБРАБОТЧИКИ ТЕКСТА (Message Handlers) ---
+
+def process_update_ep_title(message, bot: telebot.TeleBot):
+    chat_id = message.chat.id
+    pending = utils.pop_pending(chat_id)
+    new_title = message.text.strip()
+    episode_id = pending.get("episode_id")
+    
+    if not episode_id: return send_main(chat_id, bot)
+    
+    db.update_episode(episode_id, title=new_title)
+    
+    bot.reply_to(message, f"Название эпизода обновлено на: <b>{new_title}</b>", parse_mode="HTML")
+    # Возвращаемся в меню редактирования эпизода
+    # Для этого нужна имитация call-объекта, или просто отправка в главное меню
+    send_main(chat_id, bot) # Простой возврат в главное меню
+
+def process_update_ep_num(message, bot: telebot.TeleBot):
+    chat_id = message.chat.id
+    pending = utils.pop_pending(chat_id)
+    new_num = message.text.strip()
+    episode_id = pending.get("episode_id")
+    
+    if not episode_id: return send_main(chat_id, bot)
+    if not new_num.isdigit():
+        bot.reply_to(message, "Ошибка: номер должен быть числом. Попробуйте снова.")
+        utils.set_pending(chat_id, pending) # Возвращаем ожидание
+        return
+
+    db.update_episode(episode_id, number=int(new_num))
+    
+    bot.reply_to(message, f"Номер эпизода обновлен на: <b>{new_num}</b>", parse_mode="HTML")
+    send_main(chat_id, bot)
+
+def process_update_season_num(message, bot: telebot.TeleBot):
+    chat_id = message.chat.id
+    pending = utils.pop_pending(chat_id)
+    new_num = message.text.strip()
+    season_id = pending.get("season_id")
+    
+    if not season_id: return send_main(chat_id, bot)
+    if not new_num.isdigit():
+        bot.reply_to(message, "Ошибка: номер должен быть числом. Попробуйте снова.")
+        utils.set_pending(chat_id, pending) # Возвращаем ожидание
+        return
+
+    db.update_season(season_id, number=int(new_num))
+    
+    bot.reply_to(message, f"Номер сезона обновлен на: <b>{new_num}</b>", parse_mode="HTML")
+    send_main(chat_id, bot)
