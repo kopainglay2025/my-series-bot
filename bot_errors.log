@@ -1312,3 +1312,25 @@ Traceback (most recent call last):
     uploaded_at=f["file_info"].date or datetime.datetime.now(datetime.timezone.utc)
                 ^^^^^^^^^^^^^^^^^^^
 AttributeError: 'Video' object has no attribute 'date'
+2025-12-10 16:40:34,504 ERROR Callback Error
+Traceback (most recent call last):
+  File "C:\Users\Dimondrol\Desktop\bot\bot.py", line 112, in on_callback
+    handlers.process_smart_add_episode(call, bot, int(parts[1]), parts[2] if len(parts) > 2 else None)
+  File "C:\Users\Dimondrol\Desktop\bot\handlers.py", line 445, in process_smart_add_episode
+    _finalize_smart_add(call.message.chat.id, call.id, bot, series_id, pending_key)
+  File "C:\Users\Dimondrol\Desktop\bot\handlers.py", line 484, in _finalize_smart_add
+    if callback_id: bot.answer_callback_query(callback_id, msg_text)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Dimondrol\Desktop\bot\venv\Lib\site-packages\telebot\__init__.py", line 6456, in answer_callback_query
+    return apihelper.answer_callback_query(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Dimondrol\Desktop\bot\venv\Lib\site-packages\telebot\apihelper.py", line 1996, in answer_callback_query
+    return _make_request(token, method_url, params=payload, method='post')
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Dimondrol\Desktop\bot\venv\Lib\site-packages\telebot\apihelper.py", line 168, in _make_request
+    json_result = _check_result(method_name, result)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Dimondrol\Desktop\bot\venv\Lib\site-packages\telebot\apihelper.py", line 197, in _check_result
+    raise ApiTelegramException(method_name, result, result_json)
+telebot.apihelper.ApiTelegramException: A request to the Telegram API was unsuccessful. Error code: 400. Description: Bad Request: query is too old and response timeout expired or query ID is invalid
+2025-12-10 16:50:27,588 WARNING TMDB fetch failed: HTTPSConnectionPool(host='api.themoviedb.org', port=443): Read timed out. (read timeout=5)

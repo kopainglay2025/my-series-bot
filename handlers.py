@@ -114,11 +114,22 @@ def callback_season(call, bot: telebot.TeleBot, season_id: int):
     if not episodes:
         markup.add(InlineKeyboardButton("➕ Добавить эпизод (админ)", callback_data=f"add_episode:{season_id}"))
     else:
-        for e in episodes:
-            title = e['title'] if e['title'] else ""
-            # Полный формат
-            button_text = f"Серия {e['number']} - {title}".strip(" - ")
-            markup.add(InlineKeyboardButton(button_text, callback_data=f"episode:{e['id']}"))
+        # Если серий больше 10 — показываем диапазоны по десяткам
+        if len(episodes) > 10:
+            numbers = sorted([e['number'] for e in episodes])
+            ranges = []
+            for n in numbers:
+                start = ((n - 1) // 10) * 10 + 1
+                end = start + 9
+                if not ranges or ranges[-1] != (start, end):
+                    ranges.append((start, end))
+            for r_start, r_end in ranges:
+                markup.add(InlineKeyboardButton(f"{r_start}–{r_end}", callback_data=f"episode_range:{season_id}:{r_start}:{r_end}"))
+        else:
+            for e in episodes:
+                title = e['title'] if e['title'] else ""
+                button_text = f"Серия {e['number']} - {title}".strip(" - ")
+                markup.add(InlineKeyboardButton(button_text, callback_data=f"episode:{e['id']}"))
             
     is_fav = db.is_favorite(user_id, 'season', season_id)
     fav_text = "❌ Удалить из избранного" if is_fav else "⭐ В избранное"
@@ -202,6 +213,24 @@ def callback_episode(call, bot: telebot.TeleBot, episode_id: int):
     
     nav_msg = bot.send_message(chat_id, "Навигация:", reply_markup=markup)
     utils.set_last_bot_msg(chat_id, nav_msg.message_id)
+
+def callback_episode_range(call, bot: telebot.TeleBot, season_id: int, start: int, end: int):
+    chat_id = call.message.chat.id
+    episodes = [e for e in db.get_episodes(season_id) if start <= e['number'] <= end]
+    markup = InlineKeyboardMarkup()
+    for e in episodes:
+        title = e['title'] if e['title'] else ""
+        button_text = f"Серия {e['number']} - {title}".strip(" - ")
+        markup.add(InlineKeyboardButton(button_text, callback_data=f"episode:{e['id']}"))
+
+    markup.row(InlineKeyboardButton("⬅️ К сезонам", callback_data=f"season:{season_id}"),
+               InlineKeyboardButton("Главное меню", callback_data="main_menu"))
+
+    try:
+        bot.edit_message_text(f"Серии {start}–{end}:", chat_id, call.message.message_id, reply_markup=markup)
+    except:
+        msg = bot.send_message(chat_id, f"Серии {start}–{end}:", reply_markup=markup)
+        utils.set_last_bot_msg(chat_id, msg.message_id)
 
 # --- ПРОСМОТР И ИЗБРАННОЕ ---
 
