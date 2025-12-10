@@ -83,6 +83,9 @@ def on_callback(call):
             handlers.callback_delete_season(call, bot, int(data.split(":")[1]))
         elif data.startswith("delete_episode:"):
             handlers.callback_delete_episode(call, bot, int(data.split(":")[1]))
+        elif data.startswith("episode_range:"):
+            parts = data.split(":")
+            handlers.callback_episode_range(call, bot, int(parts[1]), int(parts[2]), int(parts[3]))
         elif data.startswith("update_series_title:"):
             handlers.cmd_update_series_title(call, bot, int(data.split(":")[1]))
         elif data.startswith(("update_season_number:", "update_season_num:")):
