@@ -114,8 +114,8 @@ def callback_season(call, bot: telebot.TeleBot, season_id: int):
     if not episodes:
         markup.add(InlineKeyboardButton("➕ Добавить эпизод (админ)", callback_data=f"add_episode:{season_id}"))
     else:
-        # Если серий больше 10 — показываем диапазоны по десяткам
-        if len(episodes) > 10:
+        # Если серий больше 15 — показываем диапазоны по десяткам
+        if len(episodes) > 15:
             numbers = sorted([e['number'] for e in episodes])
             ranges = []
             for n in numbers:
