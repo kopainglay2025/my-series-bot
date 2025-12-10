@@ -5,6 +5,7 @@ import db
 import admin
 import utils
 import datetime
+import math
 
 PAGE_SIZE = 8
 
@@ -114,18 +115,43 @@ def callback_season(call, bot: telebot.TeleBot, season_id: int):
     if not episodes:
         markup.add(InlineKeyboardButton("➕ Добавить эпизод (админ)", callback_data=f"add_episode:{season_id}"))
     else:
-        # Если серий больше 15 — показываем диапазоны по десяткам
+         # Если серий больше 15 — показываем в несколько столбцов
         if len(episodes) > 15:
-            numbers = sorted([e['number'] for e in episodes])
-            ranges = []
-            for n in numbers:
-                start = ((n - 1) // 10) * 10 + 1
-                end = start + 9
-                if not ranges or ranges[-1] != (start, end):
-                    ranges.append((start, end))
-            for r_start, r_end in ranges:
-                markup.add(InlineKeyboardButton(f"{r_start}–{r_end}", callback_data=f"episode_range:{season_id}:{r_start}:{r_end}"))
+            # Определяем количество столбцов
+            cols = 2
+            if len(episodes) > 40:
+                cols = 3
+                
+            # Сортируем по номеру (episodes уже должны быть отсортированы, но для надежности)
+            episodes_sorted = sorted(episodes, key=lambda x: x['number'])
+            
+            # Вычисляем количество строк
+            rows = math.ceil(len(episodes_sorted) / cols)
+            
+            grid = [[] for _ in range(rows)]
+            
+            for i, e in enumerate(episodes_sorted):
+                # Заполняем по столбцам: сначала весь первый столбец, потом второй и т.д.
+                # Индекс строки = i % rows
+                row_idx = i % rows
+                
+                # Формируем текст кнопки (компактный)
+                title = e['title']
+                b_text = f"{e['number']}"
+                if title:
+                    # Обрезаем название, если длинное
+                    trunc_len = 12 if cols == 3 else 20
+                    if len(title) > trunc_len:
+                        title = title[:trunc_len] + "..."
+                    b_text += f". {title}"
+                
+                btn = InlineKeyboardButton(b_text, callback_data=f"episode:{e['id']}")
+                grid[row_idx].append(btn)
+                
+            for row_buttons in grid:
+                markup.row(*row_buttons)
         else:
+            # Стандартный список (1 столбец)
             for e in episodes:
                 title = e['title'] if e['title'] else ""
                 button_text = f"Серия {e['number']} - {title}".strip(" - ")

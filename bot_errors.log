@@ -1334,3 +1334,27 @@ Traceback (most recent call last):
     raise ApiTelegramException(method_name, result, result_json)
 telebot.apihelper.ApiTelegramException: A request to the Telegram API was unsuccessful. Error code: 400. Description: Bad Request: query is too old and response timeout expired or query ID is invalid
 2025-12-10 16:50:27,588 WARNING TMDB fetch failed: HTTPSConnectionPool(host='api.themoviedb.org', port=443): Read timed out. (read timeout=5)
+2025-12-10 22:19:41,668 ERROR Callback Error
+Traceback (most recent call last):
+  File "C:\Users\Dimondrol\Desktop\bot\bot.py", line 58, in on_callback
+    handlers.callback_season(call, bot, int(data.split(":")[1]))
+  File "C:\Users\Dimondrol\Desktop\bot\handlers.py", line 128, in callback_season
+    rows = math.ceil(len(episodes_sorted) / cols)
+           ^^^^
+NameError: name 'math' is not defined. Did you forget to import 'math'
+2025-12-10 22:19:43,054 ERROR Callback Error
+Traceback (most recent call last):
+  File "C:\Users\Dimondrol\Desktop\bot\bot.py", line 58, in on_callback
+    handlers.callback_season(call, bot, int(data.split(":")[1]))
+  File "C:\Users\Dimondrol\Desktop\bot\handlers.py", line 128, in callback_season
+    rows = math.ceil(len(episodes_sorted) / cols)
+           ^^^^
+NameError: name 'math' is not defined. Did you forget to import 'math'
+2025-12-10 22:19:46,519 ERROR Callback Error
+Traceback (most recent call last):
+  File "C:\Users\Dimondrol\Desktop\bot\bot.py", line 58, in on_callback
+    handlers.callback_season(call, bot, int(data.split(":")[1]))
+  File "C:\Users\Dimondrol\Desktop\bot\handlers.py", line 128, in callback_season
+    rows = math.ceil(len(episodes_sorted) / cols)
+           ^^^^
+NameError: name 'math' is not defined. Did you forget to import 'math'
