@@ -1,12 +1,16 @@
-FROM python:latest
+FROM python:3.12.2
 
-RUN apt-get update -y && apt-get upgrade -y
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends git && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
-RUN pip3 install -U pip
+WORKDIR /DreamxBotz
 
-COPY . /app/
-WORKDIR /app/
-RUN pip3 install -U -r requirements.txt
+COPY requirements.txt .
+RUN pip install --no-cache-dir --upgrade pip --root-user-action=ignore && \
+    pip install --no-cache-dir -r requirements.txt --root-user-action=ignore
 
+COPY . .
 
-CMD python3 -m src
+CMD ["python3", "bot.py"]
