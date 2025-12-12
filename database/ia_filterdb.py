@@ -315,7 +315,7 @@ async def get_search_results(chat_id, query, file_type=None, max_results=None, f
 
     return files, next_offset, total_results
 
-async def get_series_episode_groups(chat_id, query, file_type=None, max_results=None, filter=False, offset=0) -> Dict[str, List[Media]]:
+async def get_series_episode_groups(chat_id, query, offset=0, file_type=None, max_results=None, filter=False) -> Dict[str, List[Media]]:
     """
     Retrieves all search results matching the query and groups them by episode (SXX EYY).
     
