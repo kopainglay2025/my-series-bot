@@ -8,9 +8,11 @@ from pyrogram.file_id import FileId
 from src.database import db, instance
 from config import COLLECTION_NAME
 
+from umongo import Document, fields
+
 @instance.register
 class Media(Document):
-    file_id = fields.StrField(attribute='_id', required=True)
+    file_id = fields.ObjectIdField(attribute='_id', required=True)
     file_ref = fields.StrField(allow_none=True)
     file_name = fields.StrField(required=True)
     file_size = fields.IntField(required=True)
@@ -21,6 +23,7 @@ class Media(Document):
     class Meta:
         indexes = ('$file_name',)
         collection_name = COLLECTION_NAME
+
 
 
 async def get_files_db_size():
