@@ -327,7 +327,7 @@ async def get_series_episode_groups(chat_id, query, offset=0, file_type=None, ma
     
     # 1. Fetch all matching files (no limit/offset)
     # Reusing the search results logic but without pagination limits for full grouping
-    files, _, _ = await get_search_results(
+    files, next_offset, total_results = await get_search_results(
         chat_id=chat_id, 
         query=query, 
         file_type=file_type, 
@@ -339,7 +339,7 @@ async def get_series_episode_groups(chat_id, query, offset=0, file_type=None, ma
     # 2. Group the retrieved files by their episode identifier
     grouped_media = await group_media_by_episode(files)
     
-    return grouped_media
+    return grouped_media, next_offset, total_results
 
 
 async def get_bad_files(query, file_type=None):
