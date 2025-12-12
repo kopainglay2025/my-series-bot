@@ -1,352 +1,401 @@
+import logging
 from struct import pack
 import re
 import base64
-from typing import Dict, List, Tuple, Optional
 from pyrogram.file_id import FileId
+from typing import Dict, List, Optional, Tuple
+from collections import defaultdict
 from pymongo.errors import DuplicateKeyError
 from umongo import Instance, Document, fields
 from motor.motor_asyncio import AsyncIOMotorClient
-from marshmallow.exceptions import ValidationError
+from marshmallow import ValidationError
 from info import *
-from utils import get_settings, save_group_settings, clean_filename
-from collections import defaultdict
+from utils import get_settings, save_group_settings
 from datetime import datetime, timedelta
-from logging_helper import LOGGER
-import time
+import logging
+import asyncio
 
-# --- Database Initialization ---
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+# ---------------------------------------------------------
+
+# Global cache for DB size
+_db_stats_cache = {"timestamp": None, "primary_size": 0.0}
+
+# Primary DB
 client = AsyncIOMotorClient(DATABASE_URI)
 db = client[DATABASE_NAME]
 instance = Instance.from_db(db)
 
+# secondary db
 client2 = AsyncIOMotorClient(DATABASE_URI2)
 db2 = client2[DATABASE_NAME]
 instance2 = Instance.from_db(db2)
 
-# --- Media Document Models ---
+
+# Regex to flexibly extract Series Name, Season (SXX), and Episode (EYY)
+# This handles variations like S01E01, S1.EP01, Season 1 Episode 1, etc.
+EPISODE_REGEX = re.compile(
+    r'(.+?)[.\s\-_]?S(\d+)[.\s\-_]?(?:E|EP|Episode)[.\s\-_]?(\d+)',
+    re.IGNORECASE
+)
+
+# --- UMONGO Document Definitions ---
 
 @instance.register
 class Media(Document):
-    file_id = fields.StrField(attribute='_id')
+    file_id = fields.StrField(attribute="_id")
     file_ref = fields.StrField(allow_none=True)
     file_name = fields.StrField(required=True)
     file_size = fields.IntField(required=True)
     file_type = fields.StrField(allow_none=True)
     mime_type = fields.StrField(allow_none=True)
     caption = fields.StrField(allow_none=True)
+
     class Meta:
-        indexes = ('$file_name', )
+        indexes = ("$file_name",)
         collection_name = COLLECTION_NAME
+
 
 @instance2.register
 class Media2(Document):
-    file_id = fields.StrField(attribute='_id')
+    file_id = fields.StrField(attribute="_id")
     file_ref = fields.StrField(allow_none=True)
     file_name = fields.StrField(required=True)
     file_size = fields.IntField(required=True)
     file_type = fields.StrField(allow_none=True)
     mime_type = fields.StrField(allow_none=True)
     caption = fields.StrField(allow_none=True)
+
     class Meta:
-        indexes = ('$file_name', )
+        indexes = ("$file_name",)
         collection_name = COLLECTION_NAME
 
-# --- NEW: Series Document Model for Grouping ---
+# --- Helper Functions for Series Grouping ---
 
-@instance.register
-class Series(Document):
-    """Stores a group of media files (e.g., all episodes of a season) under one series name."""
-    series_name = fields.StrField(required=True, unique=True) # e.g., "Loki S01"
-    # List of Media file_id (which is Media._id) that belong to this series
-    file_ids = fields.ListField(fields.StrField, required=True) 
-    created_at = fields.DateTimeField(default=datetime.utcnow)
-    class Meta:
-        indexes = ('$series_name', )
-        collection_name = 'series'
+def extract_series_episode(filename: str) -> Optional[Dict[str, str]]:
+    """
+    Extracts Series Name, Season (SXX), and Episode (EYY) from a filename.
+    Returns: {'name': str, 'season': str, 'episode': str, 'id_key': str} or None
+    """
+    match = EPISODE_REGEX.search(filename)
+    if match:
+        # Group 1: Series Name, clean up trailing separators
+        name = match.group(1).replace('.', ' ').replace('_', ' ').replace('-', ' ').strip()
         
-# --- Database Size Caching ---
+        # Group 2: Season number (pad to 2 digits)
+        season = match.group(2).zfill(2)
+        
+        # Group 3: Episode number (pad to 2 digits)
+        episode = match.group(3).zfill(2)
+        
+        # The unique identifier key for grouping: NAME_SXXEYY
+        id_key = f"{name.upper().replace(' ', '_')}_S{season}E{episode}"
+        
+        return {
+            'name': name,
+            'season': season,
+            'episode': episode,
+            'id_key': id_key
+        }
+    return None
 
-_db_size_cache = {
-    'time': 0,
-    'size': 0
-}
-DB_SIZE_CACHE_DURATION = 60 
 
-async def check_db_size(silentdb):
-    try:
-        global _db_size_cache
-        current_time = time.time()
-        is_primary = False
-        if isinstance(silentdb, AsyncIOMotorClient) or isinstance(silentdb, type(db)):
-            if silentdb.name == db.name: is_primary = True
-        elif hasattr(silentdb, 'db'):
-            if silentdb.db.name == db.name: is_primary = True
-        if is_primary and (current_time - _db_size_cache['time'] < DB_SIZE_CACHE_DURATION):
-            return _db_size_cache['size']
-        size = 0
-        if isinstance(silentdb, AsyncIOMotorClient) or isinstance(silentdb, type(db)):
-            size = (await silentdb.command("dbstats"))['dataSize']
-        elif hasattr(silentdb, 'db'):
-            size = (await silentdb.db.command("dbstats"))['dataSize']
-        elif hasattr(silentdb, 'collection'):
-            size = (await silentdb.collection.database.command("dbstats"))['dataSize']
-        if is_primary:
-            _db_size_cache['time'] = current_time
-            _db_size_cache['size'] = size
-        return size
-    except Exception as e:
-        LOGGER.error(f"Error checking DB size: {e}")
-        return 0
+async def group_media_by_episode(files: List[Media]) -> Dict[str, List[Media]]:
+    """
+    Groups a list of Media documents by their SXXEYY identifier.
+    Files with different resolutions (e.g., 720P, 1080P) but the same SXXEYY
+    will be in the same list. This fulfills the requirement to show all qualities.
     
-# --- Media File Operations (Existing) ---
+    Returns: A dictionary where keys are 'SXX EYY' (e.g., 'S01 E01') 
+             and values are a list of Media objects for that episode.
+    """
+    grouped_results = defaultdict(list)
+    for file in files:
+        # NOTE: File name attribute is accessed directly on the umongo document
+        info = extract_series_episode(file.file_name) 
+        if info:
+            # Group by SXX EYY for user-friendly display (e.g., 'S01 E01')
+            group_key = f"S{info['season']} E{info['episode']}"
+            grouped_results[group_key].append(file)
+        else:
+            # Group files that don't match the series/episode pattern separately
+            grouped_results['Other'].append(file)
+            
+    # Sort the episode keys numerically
+    sorted_groups = {}
+    
+    # Sort keys for SXX EYY (e.g., S01 E01, S01 E02, S02 E01...)
+    # The 'SXX EYY' format allows for lexicographical sorting which mostly works for standard series
+    episode_keys = sorted([k for k in grouped_results.keys() if k != 'Other'])
+    
+    for key in episode_keys:
+        sorted_groups[key] = grouped_results[key]
+        
+    if 'Other' in grouped_results and grouped_results['Other']:
+        sorted_groups['Other'] = grouped_results['Other']
+        
+    return sorted_groups
 
-async def save_file(media) -> Tuple[bool, int]:
+# --- Database Operations ---
+
+async def check_db_size(db):
     try:
-        file_id, file_ref = unpack_new_file_id(media.file_id)
-        file_name = clean_filename(media.file_name)
-        use_secondary = False
-        saveMedia = Media        
-        if MULTIPLE_DB:
-            primary_db_size = await check_db_size(db)
-            db_change_limit_bytes = DB_CHANGE_LIMIT * 1024 * 1024
-            if primary_db_size >= db_change_limit_bytes:
-                saveMedia = Media2
-                use_secondary = True              
-        if use_secondary:
-            exists_in_primary = await Media.count_documents({'file_id': file_id}, limit=1)
-            if exists_in_primary:
-                LOGGER.info(f'{file_name} Is Already Saved In Primary Database!')
+        now = datetime.utcnow()
+        cache_stale_by_time = _db_stats_cache["timestamp"] is None or (
+            now - _db_stats_cache["timestamp"] > timedelta(minutes=10)
+        )
+        refresh_if_size_threshold = _db_stats_cache["primary_size"] >= 10.0
+        if not cache_stale_by_time and not refresh_if_size_threshold:
+            return _db_stats_cache["primary_size"]
+        stats = await db.command("dbstats")
+        db_logical_size = stats["dataSize"]
+        db_index_size = stats["indexSize"]
+        db_logical_size_mb = db_logical_size / (1024 * 1024)
+        db_index_size_mb = db_index_size / (1024 * 1024)
+        db_size_mb = db_logical_size_mb + db_index_size_mb
+        _db_stats_cache["primary_size"] = db_size_mb
+        _db_stats_cache["timestamp"] = now
+        return db_size_mb
+    except Exception as e:
+        print(f"Error Checking Database Size: {e}")
+        return 0
+
+
+async def save_file(media):
+    """Save file in database, with detailed logging."""
+    file_id, file_ref = unpack_new_file_id(media.file_id)
+    file_name = re.sub(
+        r"[_\-\.#+$%^&*()!~`,;:\"'?/<>\[\]{}=|\\]", " ", str(media.file_name)
+    )
+    file_name = re.sub(r"\s+", " ", file_name).strip()
+    saveMedia = Media
+    target_db = "Primary"
+    if MULTIPLE_DB:
+        try:
+            # NOTE: count_documents is a method on the collection/model instance provided by motor/umongo
+            exists = await Media.count_documents({"file_id": file_id}, limit=1)
+            if exists:
+                logger.info(f"[SKIP] '{file_name}' already in Primary DB.")
                 return False, 0
-        file = saveMedia(
+            primary_db_size = await check_db_size(db)
+            if primary_db_size >= 407:
+                saveMedia = Media2
+                target_db = "Secondary"
+                logger.warning("Switching to Secondary DB due to size threshold.")
+        except Exception as e:
+            logger.error(
+                "Error during MULTIPLE_DB check; defaulting to primary DB.", exc_info=e
+            )
+    try:
+        record = saveMedia(
             file_id=file_id,
             file_ref=file_ref,
             file_name=file_name,
             file_size=media.file_size,
             file_type=media.file_type,
             mime_type=media.mime_type,
-            caption=media.caption.html if media.caption else None,
+            caption=(media.caption.html if media.caption and INDEX_CAPTION else None),
         )
-        await file.commit()
-        LOGGER.info(f'{file_name} Saved Successfully In {"Secondary" if use_secondary else "Primary"} Database')
-        return True, 1
     except ValidationError as e:
-        LOGGER.error(f'Validation Error While Saving File: {e}')
+        logger.exception(f"[VALIDATION ERROR] '{file_name}' → {e}")
         return False, 2
+    try:
+        await record.commit()
     except DuplicateKeyError:
-        LOGGER.info(f'{file_name} Is Already Saved In {"Secondary" if use_secondary else "Primary"} Database')
+        logger.info(
+            f"[SKIP] DuplicateKey: '{file_name}' already exists in {target_db} DB."
+        )
         return False, 0
     except Exception as e:
-        LOGGER.error(f"Unexpected error in save_file: {e}")
+        logger.exception(
+            f"[ERROR] Failed commit of '{file_name}' to {target_db} DB.", exc_info=e
+        )
         return False, 3
-            
+    logger.info(f"[SUCCESS] '{file_name}' saved to {target_db} DB.")
+    return True, 1
 
-async def get_search_results(chat_id, query, file_type=None, max_results=10, offset=0, filter=None) -> Tuple[List, int, int]:
+async def get_search_results(chat_id, query, file_type=None, max_results=None, offset=0, filter=False):
     if chat_id is not None:
         settings = await get_settings(int(chat_id))
-        try:
-            user_max_btn = settings.get('max_btn')
-            if user_max_btn:
-                max_results = 10
-            else:
-                max_results = int(MAX_B_TN)
-        except (KeyError, ValueError):
-            await save_group_settings(int(chat_id), 'max_btn', False)
-            max_results = int(MAX_B_TN)
+        if max_results is None:
+            try:
+                # Assuming max_btn True means use a default like 10
+                max_results = 10 if settings.get("max_btn") else int(MAX_B_TN)
+            except KeyError:
+                await save_group_settings(int(chat_id), "max_btn", True)
+                settings = await get_settings(int(chat_id))
+                max_results = 10 if settings.get("max_btn") else int(MAX_B_TN)
 
-    query = query.strip()
-    if not query:
-        raw_pattern = '.'
-    elif ' ' not in query:
-        raw_pattern = r"(\b|[\.\+\-_])" + query + r"(\b|[\.\+\-_])"
-    else:
-        parts = query.split(' ')
-        new_parts = []
-        for part in parts:
-            new_parts.append(r"(\b|[\.\+\-_])" + part + r"(\b|[\.\+\-_])")
-        raw_pattern = r".*[\s\.\+\-_()\[\]]".join(new_parts)
-    try:
-        regex = re.compile(raw_pattern, flags=re.IGNORECASE)
-    except Exception as e:
-        LOGGER.error(f"Regex Error: {e}")
-        return [], 0, 0
-    if not isinstance(filter, dict):
+    # --- Search Query Construction ---
+    if isinstance(query, list):
+        # This part handles season searches etc., where you need to match any of the full phrases.
+        raw_pattern = '|'.join(re.escape(q.strip()) for q in query if q.strip())
+        regex_list = [re.compile(raw_pattern, re.IGNORECASE)] if raw_pattern else []
+        
         if USE_CAPTION_FILTER:
-            filter = {'$or': [{'file_name': regex}, {'caption': regex}]}
+            # Using $or with multiple regexes for file_name and caption
+            filter_mongo = {"$or": [{"file_name": r} for r in regex_list] + [{"caption": r} for r in regex_list]}
         else:
-            filter = {'file_name': regex}
-    if file_type:
-        filter['file_type'] = file_type
-    if max_results % 2 != 0:
-        max_results += 1
-    
-    # Check if the query is a Series Name first
-    series_files, series_total = await get_series_files(query)
-    if series_files:
-        # If a series is found, return its contents
-        # We handle pagination manually since we have the full list
-        files = series_files[offset:offset + max_results]
-        next_offset = offset + len(files)
-        if next_offset >= series_total or len(files) == 0:
-            next_offset = 0
-        return files, next_offset, series_total
-
-    # Proceed with normal media search if no series match
-    cursor1 = Media.find(filter).sort('$natural', -1).skip(offset).limit(max_results)
-    files = await cursor1.to_list(length=max_results)
-    total_results = 0
-    if not MULTIPLE_DB:
-        if offset == 0 and len(files) < max_results:
-            total_results = len(files)
-        else:
-            total_results = await Media.count_documents(filter)
+            filter_mongo = {"$or": [{"file_name": r} for r in regex_list]}
     else:
-        count_db1 = await Media.count_documents(filter)
-        count_db2 = await Media2.count_documents(filter)
-        total_results = count_db1 + count_db2
-        if len(files) < max_results:
-            remaining_needed = max_results - len(files)
-            if len(files) > 0:
-                cursor2 = Media2.find(filter).sort('$natural', -1).limit(remaining_needed)
-                files2 = await cursor2.to_list(length=remaining_needed)
-                files.extend(files2)
-            else:
-                if offset >= count_db1:
-                    offset_db2 = offset - count_db1
-                    cursor2 = Media2.find(filter).sort('$natural', -1).skip(offset_db2).limit(max_results)
-                    files = await cursor2.to_list(length=max_results)
-                else:
-                    pass
-    next_offset = offset + len(files)
-    if next_offset >= total_results or len(files) == 0:
-        next_offset = 0
-    return files, next_offset, total_results
+        query = query.strip()
+        if not query:
+            return [], None, 0
+            
+        # This is the key change for balancing speed and flexibility
+        if ' ' in query:
+            # For multi-word queries, allow spaces, dots, or hyphens between words.
+            # Use '.*?' to allow other characters in between
+            words = [re.escape(word) for word in query.split()]
+            raw_pattern = r'.*'.join(words)
+        else:
+            # For single-word queries, use word boundaries for accuracy.
+            raw_pattern = r"\b" + re.escape(query) + r"\b"
+
+        try:
+            # Compile the single, main regex pattern
+            regex = re.compile(raw_pattern, flags=re.IGNORECASE)
+        except re.error:
+            return [], None, 0
+
+        if USE_CAPTION_FILTER:
+            filter_mongo = {"$or": [{"file_name": regex}, {"caption": regex}]}
+        else:
+            filter_mongo = {"file_name": regex}
+
+    if file_type:
+        filter_mongo["file_type"] = file_type
     
+    # --- Fetching Results ---
+    if ULTRA_FAST_MODE:
+        limit = max_results + 1
+        find_tasks = [Media.find(filter_mongo).sort("$natural", -1).skip(offset).limit(limit).to_list(length=limit)]
+        if MULTIPLE_DB:
+            find_tasks.append(Media2.find(filter_mongo).sort("$natural", -1).skip(offset).limit(limit).to_list(length=limit))
+        
+        results = await asyncio.gather(*find_tasks)
+        files = results[0]
+        if MULTIPLE_DB and len(results) > 1:
+            files.extend(results[1])
+            
+        files = files[:limit]
+
+        has_next_page = len(files) > max_results
+        if has_next_page:
+            files = files[:-1]
+
+        next_offset = offset + len(files) if has_next_page else ""
+        total_results = offset + len(files) + (1 if has_next_page else 0)
+    else:
+        # Standard mode: Count documents first
+        count_tasks = [Media.count_documents(filter_mongo)]
+        find_tasks = [Media.find(filter_mongo).sort("$natural", -1).skip(offset).limit(max_results).to_list(length=max_results)]
+
+        if MULTIPLE_DB:
+            count_tasks.append(Media2.count_documents(filter_mongo))
+            find_tasks.append(Media2.find(filter_mongo).sort("$natural", -1).skip(offset).limit(max_results).to_list(length=max_results))
+        
+        count_results, find_results = await asyncio.gather(
+            asyncio.gather(*count_tasks),
+            asyncio.gather(*find_tasks)
+        )
+        
+        total_results = sum(count_results)
+        files = find_results[0]
+        if MULTIPLE_DB and len(find_results) > 1:
+            files.extend(find_results[1])
+        
+        files = files[:max_results]
+        
+        next_offset = offset + len(files)
+        if next_offset >= total_results:
+            next_offset = ""
+
+    return files, next_offset, total_results
+
+
+async def get_series_episode_groups(chat_id, query, file_type=None, filter=False) -> Dict[str, List[Media]]:
+    """
+    Retrieves all search results matching the query and groups them by episode (SXX EYY).
+    
+    This function is designed to support the user's request for showing all versions 
+    (e.g., 720p, 1080p) of a single episode under one episode key.
+    
+    Note: offset and max_results are ignored here as we need all results to group correctly.
+    """
+    
+    # 1. Fetch all matching files (no limit/offset)
+    # Reusing the search results logic but without pagination limits for full grouping
+    files, _, _ = await get_search_results(
+        chat_id=chat_id, 
+        query=query, 
+        file_type=file_type, 
+        max_results=200, # Use a reasonable cap to prevent massive queries, but large enough for most seasons
+        offset=0, 
+        filter=filter
+    )
+    
+    # 2. Group the retrieved files by their episode identifier
+    grouped_media = await group_media_by_episode(files)
+    
+    return grouped_media
+
+
 async def get_bad_files(query, file_type=None):
     query = query.strip()
     if not query:
-        raw_pattern = '.'
+        # If query is empty, match any file name (but this should probably be restricted in use)
+        raw_pattern = '.' 
     elif ' ' not in query:
-        raw_pattern = r"(\b|[\.\+\-_])" + query + r"(\b|[\.\+\-_])"
+        # If single word, match word boundary for accuracy
+        raw_pattern = r"\b" + re.escape(query) + r"\b"
     else:
-        parts = query.split(' ')
-        new_parts = []
-        for part in parts:
-            new_parts.append(r"(\b|[\.\+\-_])" + part + r"(\b|[\.\+\-_])")
-        raw_pattern = r".*[\s\.\+\-_()]".join(new_parts)
+        # If multi-word, match sequentially, allowing separators in between (simple version)
+        words = [re.escape(word) for word in query.split()]
+        raw_pattern = r'.*'.join(words)
+        
     try:
         regex = re.compile(raw_pattern, flags=re.IGNORECASE)
     except:
-        return [], 0
+        return []
+        
     if USE_CAPTION_FILTER:
         filter = {'$or': [{'file_name': regex}, {'caption': regex}]}
     else:
         filter = {'file_name': regex}
+        
     if file_type:
         filter['file_type'] = file_type
-    cursor1 = Media.find(filter).sort('$natural', -1)
-    files1 = await cursor1.to_list(length=(await Media.count_documents(filter)))
-    files = files1
+        
+    # Find all documents in both dbs for bad file check
+    files1 = await Media.find(filter).sort('$natural', -1).to_list()
+    
     if MULTIPLE_DB:
-        cursor2 = Media2.find(filter).sort('$natural', -1)
-        files2 = await cursor2.to_list(length=(await Media2.count_documents(filter)))
-        files.extend(files2)
+        files2 = await Media2.find(filter).sort('$natural', -1).to_list()
+        files = files1 + files2
+    else:
+        files = files1
+        
     total_results = len(files)
     return files, total_results
-    
+
 
 async def get_file_details(query):
-    filter = {'file_id': query}
-    cursor = Media.find(filter)
-    filedetails = await cursor.to_list(length=1)
-    if not filedetails:
-        cursor2 = Media2.find(filter)
-        filedetails = await cursor2.to_list(length=1)
-    return filedetails
-
-
-# --- NEW: Series Grouping Functions ---
-
-async def save_series_group(series_name: str, file_ids: List[str]) -> bool:
-    """Creates or updates a series group with a list of file IDs."""
-    if not series_name or not file_ids:
-        LOGGER.error("Series name or file IDs cannot be empty.")
-        return False
-        
-    try:
-        # Check if series already exists
-        series_doc = await Series.find_one({'series_name': series_name})
-        
-        if series_doc:
-            # Update existing series (e.g., if new episodes are added)
-            existing_ids = set(series_doc.file_ids)
-            new_ids = set(file_ids)
-            
-            # Combine and ensure uniqueness
-            combined_ids = list(existing_ids.union(new_ids))
-            
-            series_doc.file_ids = combined_ids
-            await series_doc.commit()
-            LOGGER.info(f"Series '{series_name}' updated with {len(new_ids - existing_ids)} new files. Total: {len(combined_ids)}")
-        else:
-            # Create new series
-            new_series = Series(
-                series_name=series_name,
-                file_ids=list(set(file_ids)) # Ensure uniqueness on creation
-            )
-            await new_series.commit()
-            LOGGER.info(f"New series '{series_name}' saved with {len(file_ids)} files.")
-        
-        return True
-        
-    except Exception as e:
-        LOGGER.error(f"Error saving series group '{series_name}': {e}")
-        return False
-
-async def get_series_files(series_name: str) -> Tuple[List[Media], int]:
-    """Retrieves all media files belonging to a specific series name."""
-    series_doc = await Series.find_one({'series_name': series_name})
+    filter = {"file_id": query}
     
-    if not series_doc:
-        return [], 0
-        
-    file_ids = series_doc.file_ids
-    
-    # Query all media files using the extracted file_ids
-    media_files = []
-    
-    # We need to query both Media and Media2 collections
-    q_filter = {'_id': {'$in': file_ids}}
-    
-    # Query primary database
-    cursor1 = Media.find(q_filter)
-    media_files.extend(await cursor1.to_list(length=len(file_ids)))
-    
-    # Query secondary database if MULTIPLE_DB is enabled
+    tasks = [Media.find(filter).to_list(length=1)]
     if MULTIPLE_DB:
-        cursor2 = Media2.find(q_filter)
-        media_files.extend(await cursor2.to_list(length=len(file_ids)))
+        tasks.append(Media2.find(filter).to_list(length=1))
         
-    # Sort files based on their original order (optional, but good practice for series)
-    file_id_to_media = {file.file_id: file for file in media_files}
-    ordered_files = [file_id_to_media[fid] for fid in file_ids if fid in file_id_to_media]
+    results = await asyncio.gather(*tasks)
     
-    return ordered_files, len(ordered_files)
-    
-async def delete_series_group(series_name: str) -> bool:
-    """Deletes the series group entry."""
-    try:
-        result = await Series.delete_many({'series_name': series_name})
-        if result.deleted_count > 0:
-            LOGGER.info(f"Series group '{series_name}' deleted.")
-            return True
-        else:
-            LOGGER.info(f"Series group '{series_name}' not found.")
-            return False
-    except Exception as e:
-        LOGGER.error(f"Error deleting series group '{series_name}': {e}")
-        return False
+    for filedetails in results:
+        if filedetails:
+            return filedetails
+            
+    return []
 
-# --- File ID Encoding/Decoding (Existing) ---
 
 def encode_file_id(s: bytes) -> str:
     r = b""
@@ -358,13 +407,17 @@ def encode_file_id(s: bytes) -> str:
             if n:
                 r += b"\x00" + bytes([n])
                 n = 0
+
             r += bytes([i])
     return base64.urlsafe_b64encode(r).decode().rstrip("=")
+
 
 def encode_file_ref(file_ref: bytes) -> str:
     return base64.urlsafe_b64encode(file_ref).decode().rstrip("=")
 
+
 def unpack_new_file_id(new_file_id):
+    """Return file_id, file_ref"""
     decoded = FileId.decode(new_file_id)
     file_id = encode_file_id(
         pack(
@@ -372,12 +425,11 @@ def unpack_new_file_id(new_file_id):
             int(decoded.file_type),
             decoded.dc_id,
             decoded.media_id,
-            decoded.access_hash
+            decoded.access_hash,
         )
     )
     file_ref = encode_file_ref(decoded.file_reference)
     return file_id, file_ref
-
 
 async def dreamxbotz_fetch_media(limit: int) -> List[dict]:
     try:
