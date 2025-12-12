@@ -19,8 +19,11 @@ def init_db(path: str = DB_NAME):
             id INTEGER PRIMARY KEY,
             title TEXT NOT NULL,
             description TEXT,
+            poster_file_id TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )""")
+        try: cur.execute("ALTER TABLE series ADD COLUMN poster_file_id TEXT")
+        except: pass
         cur.execute("""CREATE TABLE IF NOT EXISTS seasons (
             id INTEGER PRIMARY KEY,
             series_id INTEGER NOT NULL,
@@ -69,17 +72,62 @@ def add_series(title: str, description: str = None, path: str = DB_NAME) -> int:
 
 def get_all_series(path: str = DB_NAME) -> List[sqlite3.Row]:
     with get_connection(path) as conn:
-        return list(conn.cursor().execute("SELECT id, title FROM series ORDER BY title").fetchall())
+        return list(conn.cursor().execute("SELECT id, title, description, poster_file_id FROM series ORDER BY title").fetchall())
 
 def get_series(series_id: int, path: str = DB_NAME) -> Optional[sqlite3.Row]:
     with get_connection(path) as conn:
         return conn.cursor().execute("SELECT * FROM series WHERE id=?", (series_id,)).fetchone()
 
-def update_series(series_id: int, title: str = None, description: str = None, path: str = DB_NAME):
+def update_series(series_id: int, title: str = None, description: str = None, poster_file_id: str = None, path: str = DB_NAME):
     with get_connection(path) as conn:
         cur = conn.cursor()
-        if title: cur.execute("UPDATE series SET title=? WHERE id=?", (title, series_id))
+        if title is not None:
+            cur.execute("UPDATE series SET title=? WHERE id=?", (title, series_id))
+        if description is not None:
+            cur.execute("UPDATE series SET description=? WHERE id=?", (description, series_id))
+        if poster_file_id is not None:
+            cur.execute("UPDATE series SET poster_file_id=? WHERE id=?", (poster_file_id, series_id))
         conn.commit()
+
+def update_series_poster(series_id: int, poster_file_id: str, path: str = DB_NAME):
+    with get_connection(path) as conn:
+        conn.cursor().execute("UPDATE series SET poster_file_id=? WHERE id=?", (poster_file_id, series_id))
+        conn.commit()
+
+def clear_series_poster(series_id: int, path: str = DB_NAME):
+    with get_connection(path) as conn:
+        conn.cursor().execute("UPDATE series SET poster_file_id=NULL WHERE id=?", (series_id,))
+        conn.commit()
+
+# --- WATCH META HELPERS ---
+def get_last_watched_at_for_series(user_id: int, series_id: int, path: str = DB_NAME):
+    with get_connection(path) as conn:
+        row = conn.cursor().execute("""
+            SELECT MAX(w.watched_at) as last_dt
+            FROM watched_episodes w
+            JOIN episodes e ON w.episode_id = e.id
+            JOIN seasons s ON e.season_id = s.id
+            WHERE w.user_id=? AND s.series_id=?
+        """, (user_id, series_id)).fetchone()
+        return row["last_dt"] if row and row["last_dt"] else None
+
+def get_last_watched_at_for_season(user_id: int, season_id: int, path: str = DB_NAME):
+    with get_connection(path) as conn:
+        row = conn.cursor().execute("""
+            SELECT MAX(w.watched_at) as last_dt
+            FROM watched_episodes w
+            JOIN episodes e ON w.episode_id = e.id
+            WHERE w.user_id=? AND e.season_id=?
+        """, (user_id, season_id)).fetchone()
+        return row["last_dt"] if row and row["last_dt"] else None
+
+def get_last_watched_at_for_episode(user_id: int, episode_id: int, path: str = DB_NAME):
+    with get_connection(path) as conn:
+        row = conn.cursor().execute("""
+            SELECT watched_at FROM watched_episodes
+            WHERE user_id=? AND episode_id=? LIMIT 1
+        """, (user_id, episode_id)).fetchone()
+        return row["watched_at"] if row else None
 
 def delete_series(series_id: int, path: str = DB_NAME):
     with get_connection(path) as conn:
@@ -223,6 +271,7 @@ def get_continue_watching_data(user_id: int, limit: int = 5, path: str = DB_NAME
         for s_row in series_to_check:
             series_id = s_row['series_id']
             series_title = s_row['series_title']
+            last_watched_at = s_row['last_watched_at']
             
             cur.execute("""
                 SELECT e.id as last_ep_id, e.number as last_ep_num, se.id as last_season_id, se.number as last_season_num
@@ -274,7 +323,8 @@ def get_continue_watching_data(user_id: int, limit: int = 5, path: str = DB_NAME
                     'last_ep_id': last_watched_ep['last_ep_id'],
                     'last_ep_s': last_watched_ep['last_season_num'],
                     'last_ep_e': last_watched_ep['last_ep_num'],
-                    'next_ep_data': next_ep_data
+                    'next_ep_data': next_ep_data,
+                    'last_watched_at': last_watched_at
                 })
         return results
 
@@ -309,3 +359,4 @@ def dump_sample_data(path: str = DB_NAME):
     rid = add_series("Sample Series", "Desc", path)
     add_season(rid, 1, path)
     return True
+ 

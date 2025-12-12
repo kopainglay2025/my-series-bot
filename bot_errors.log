@@ -1358,3 +1358,177 @@ Traceback (most recent call last):
     rows = math.ceil(len(episodes_sorted) / cols)
            ^^^^
 NameError: name 'math' is not defined. Did you forget to import 'math'
+2025-12-11 18:51:17,700 ERROR Callback Error
+Traceback (most recent call last):
+  File "C:\Users\Dimondrol\Desktop\123\bot.py", line 59, in on_callback
+    handlers.callback_series(call, bot, int(data.split(":")[1]))
+  File "C:\Users\Dimondrol\Desktop\123\handlers.py", line 104, in callback_series
+    if series_info and series_info.get("poster_file_id"):
+                       ^^^^^^^^^^^^^^^
+AttributeError: 'sqlite3.Row' object has no attribute 'get'
+2025-12-11 18:51:19,443 ERROR Callback Error
+Traceback (most recent call last):
+  File "C:\Users\Dimondrol\Desktop\123\bot.py", line 59, in on_callback
+    handlers.callback_series(call, bot, int(data.split(":")[1]))
+  File "C:\Users\Dimondrol\Desktop\123\handlers.py", line 104, in callback_series
+    if series_info and series_info.get("poster_file_id"):
+                       ^^^^^^^^^^^^^^^
+AttributeError: 'sqlite3.Row' object has no attribute 'get'
+2025-12-11 18:51:20,522 ERROR Callback Error
+Traceback (most recent call last):
+  File "C:\Users\Dimondrol\Desktop\123\bot.py", line 59, in on_callback
+    handlers.callback_series(call, bot, int(data.split(":")[1]))
+  File "C:\Users\Dimondrol\Desktop\123\handlers.py", line 104, in callback_series
+    if series_info and series_info.get("poster_file_id"):
+                       ^^^^^^^^^^^^^^^
+AttributeError: 'sqlite3.Row' object has no attribute 'get'
+2025-12-11 19:01:50,622 ERROR Callback Error
+Traceback (most recent call last):
+  File "C:\Users\Dimondrol\Desktop\123\bot.py", line 59, in on_callback
+    handlers.callback_series(call, bot, int(data.split(":")[1]))
+  File "C:\Users\Dimondrol\Desktop\123\handlers.py", line 108, in callback_series
+    if series_info and series_info.get("poster_file_id"):
+                       ^^^^^^^^^^^^^^^
+AttributeError: 'sqlite3.Row' object has no attribute 'get'
+2025-12-11 19:01:51,696 ERROR Callback Error
+Traceback (most recent call last):
+  File "C:\Users\Dimondrol\Desktop\123\bot.py", line 59, in on_callback
+    handlers.callback_series(call, bot, int(data.split(":")[1]))
+  File "C:\Users\Dimondrol\Desktop\123\handlers.py", line 108, in callback_series
+    if series_info and series_info.get("poster_file_id"):
+                       ^^^^^^^^^^^^^^^
+AttributeError: 'sqlite3.Row' object has no attribute 'get'
+2025-12-11 20:17:33,049 ERROR Callback Error
+Traceback (most recent call last):
+  File "C:\Users\Dimondrol\Desktop\123\venv\Lib\site-packages\urllib3\connectionpool.py", line 787, in urlopen
+    response = self._make_request(
+               ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Dimondrol\Desktop\123\venv\Lib\site-packages\urllib3\connectionpool.py", line 534, in _make_request
+    response = conn.getresponse()
+               ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Dimondrol\Desktop\123\venv\Lib\site-packages\urllib3\connection.py", line 571, in getresponse
+    httplib_response = super().getresponse()
+                       ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Dimondrol\AppData\Local\Programs\Python\Python312\Lib\http\client.py", line 1428, in getresponse
+    response.begin()
+  File "C:\Users\Dimondrol\AppData\Local\Programs\Python\Python312\Lib\http\client.py", line 331, in begin
+    version, status, reason = self._read_status()
+                              ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Dimondrol\AppData\Local\Programs\Python\Python312\Lib\http\client.py", line 300, in _read_status
+    raise RemoteDisconnected("Remote end closed connection without"
+http.client.RemoteDisconnected: Remote end closed connection without response
+
+The above exception was the direct cause of the following exception:
+
+urllib3.exceptions.ProxyError: ('Unable to connect to proxy', RemoteDisconnected('Remote end closed connection without response'))
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\Users\Dimondrol\Desktop\123\venv\Lib\site-packages\requests\adapters.py", line 644, in send
+    resp = conn.urlopen(
+           ^^^^^^^^^^^^^
+  File "C:\Users\Dimondrol\Desktop\123\venv\Lib\site-packages\urllib3\connectionpool.py", line 841, in urlopen
+    retries = retries.increment(
+              ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Dimondrol\Desktop\123\venv\Lib\site-packages\urllib3\util\retry.py", line 519, in increment
+    raise MaxRetryError(_pool, url, reason) from reason  # type: ignore[arg-type]
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+urllib3.exceptions.MaxRetryError: HTTPSConnectionPool(host='api.telegram.org', port=443): Max retries exceeded with url: /bot8154142653:AAH4c34ft-eAat6mln-uL2I7fye9itS79vE/editMessageText?text=%D0%A0%D0%B5%D0%B4.+%D1%81%D0%B5%D1%80%D0%B8%D0%B0%D0%BB%D0%B0%3A&chat_id=1374615669&message_id=3234&parse_mode=HTML&reply_markup=%7B%22inline_keyboard%22%3A+%5B%5B%7B%22text%22%3A+%22%5Cu270f%5Cufe0f+%5Cu041d%5Cu0430%5Cu0437%5Cu0432%5Cu0430%5Cu043d%5Cu0438%5Cu0435%22%2C+%22callback_data%22%3A+%22update_series_title%3A4%22%7D%2C+%7B%22text%22%3A+%22%5Cud83d%5Cuddd1%5Cufe0f+%5Cu0423%5Cu0434%5Cu0430%5Cu043b%5Cu0438%5Cu0442%5Cu044c%22%2C+%22callback_data%22%3A+%22delete_series%3A4%22%7D%5D%2C+%5B%7B%22text%22%3A+%22%5Cud83d%5Cuddbc+%5Cu041f%5Cu043e%5Cu0441%5Cu0442%5Cu0435%5Cu0440%22%2C+%22callback_data%22%3A+%22update_series_poster%3A4%22%7D%2C+%7B%22text%22%3A+%22%5Cud83d%5Cuddd1+%5Cu041f%5Cu043e%5Cu0441%5Cu0442%5Cu0435%5Cu0440%22%2C+%22callback_data%22%3A+%22delete_series_poster%3A4%22%7D%5D%2C+%5B%7B%22text%22%3A+%22%5Cu041d%5Cu0430%5Cu0437%5Cu0430%5Cu0434%22%2C+%22callback_data%22%3A+%22edit_menu%22%7D%5D%5D%7D (Caused by ProxyError('Unable to connect to proxy', RemoteDisconnected('Remote end closed connection without response')))
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Dimondrol\Desktop\123\bot.py", line 78, in on_callback
+    handlers.callback_edit_series(call, bot, int(data.split(":")[1]))
+  File "C:\Users\Dimondrol\Desktop\123\handlers.py", line 443, in callback_edit_series
+    bot.edit_message_text("Ред. сериала:", chat_id, call.message.message_id, reply_markup=markup)
+  File "C:\Users\Dimondrol\Desktop\123\venv\Lib\site-packages\telebot\__init__.py", line 5349, in edit_message_text
+    result = apihelper.edit_message_text(
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Dimondrol\Desktop\123\venv\Lib\site-packages\telebot\apihelper.py", line 1627, in edit_message_text
+    return _make_request(token, method_url, params=payload, method='post')
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Dimondrol\Desktop\123\venv\Lib\site-packages\telebot\apihelper.py", line 162, in _make_request
+    result = _get_req_session().request(
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Dimondrol\Desktop\123\venv\Lib\site-packages\requests\sessions.py", line 589, in request
+    resp = self.send(prep, **send_kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Dimondrol\Desktop\123\venv\Lib\site-packages\requests\sessions.py", line 703, in send
+    r = adapter.send(request, **kwargs)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Dimondrol\Desktop\123\venv\Lib\site-packages\requests\adapters.py", line 671, in send
+    raise ProxyError(e, request=request)
+requests.exceptions.ProxyError: HTTPSConnectionPool(host='api.telegram.org', port=443): Max retries exceeded with url: /bot8154142653:AAH4c34ft-eAat6mln-uL2I7fye9itS79vE/editMessageText?text=%D0%A0%D0%B5%D0%B4.+%D1%81%D0%B5%D1%80%D0%B8%D0%B0%D0%BB%D0%B0%3A&chat_id=1374615669&message_id=3234&parse_mode=HTML&reply_markup=%7B%22inline_keyboard%22%3A+%5B%5B%7B%22text%22%3A+%22%5Cu270f%5Cufe0f+%5Cu041d%5Cu0430%5Cu0437%5Cu0432%5Cu0430%5Cu043d%5Cu0438%5Cu0435%22%2C+%22callback_data%22%3A+%22update_series_title%3A4%22%7D%2C+%7B%22text%22%3A+%22%5Cud83d%5Cuddd1%5Cufe0f+%5Cu0423%5Cu0434%5Cu0430%5Cu043b%5Cu0438%5Cu0442%5Cu044c%22%2C+%22callback_data%22%3A+%22delete_series%3A4%22%7D%5D%2C+%5B%7B%22text%22%3A+%22%5Cud83d%5Cuddbc+%5Cu041f%5Cu043e%5Cu0441%5Cu0442%5Cu0435%5Cu0440%22%2C+%22callback_data%22%3A+%22update_series_poster%3A4%22%7D%2C+%7B%22text%22%3A+%22%5Cud83d%5Cuddd1+%5Cu041f%5Cu043e%5Cu0441%5Cu0442%5Cu0435%5Cu0440%22%2C+%22callback_data%22%3A+%22delete_series_poster%3A4%22%7D%5D%2C+%5B%7B%22text%22%3A+%22%5Cu041d%5Cu0430%5Cu0437%5Cu0430%5Cu0434%22%2C+%22callback_data%22%3A+%22edit_menu%22%7D%5D%5D%7D (Caused by ProxyError('Unable to connect to proxy', RemoteDisconnected('Remote end closed connection without response')))
+2025-12-12 22:08:55,474 ERROR Callback Error
+Traceback (most recent call last):
+  File "C:\Users\Dimondrol\Desktop\123\venv\Lib\site-packages\urllib3\connectionpool.py", line 787, in urlopen
+    response = self._make_request(
+               ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Dimondrol\Desktop\123\venv\Lib\site-packages\urllib3\connectionpool.py", line 534, in _make_request
+    response = conn.getresponse()
+               ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Dimondrol\Desktop\123\venv\Lib\site-packages\urllib3\connection.py", line 571, in getresponse
+    httplib_response = super().getresponse()
+                       ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Dimondrol\AppData\Local\Programs\Python\Python312\Lib\http\client.py", line 1428, in getresponse
+    response.begin()
+  File "C:\Users\Dimondrol\AppData\Local\Programs\Python\Python312\Lib\http\client.py", line 331, in begin
+    version, status, reason = self._read_status()
+                              ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Dimondrol\AppData\Local\Programs\Python\Python312\Lib\http\client.py", line 300, in _read_status
+    raise RemoteDisconnected("Remote end closed connection without"
+http.client.RemoteDisconnected: Remote end closed connection without response
+
+The above exception was the direct cause of the following exception:
+
+urllib3.exceptions.ProxyError: ('Unable to connect to proxy', RemoteDisconnected('Remote end closed connection without response'))
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\Users\Dimondrol\Desktop\123\venv\Lib\site-packages\requests\adapters.py", line 644, in send
+    resp = conn.urlopen(
+           ^^^^^^^^^^^^^
+  File "C:\Users\Dimondrol\Desktop\123\venv\Lib\site-packages\urllib3\connectionpool.py", line 841, in urlopen
+    retries = retries.increment(
+              ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Dimondrol\Desktop\123\venv\Lib\site-packages\urllib3\util\retry.py", line 519, in increment
+    raise MaxRetryError(_pool, url, reason) from reason  # type: ignore[arg-type]
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+urllib3.exceptions.MaxRetryError: HTTPSConnectionPool(host='api.telegram.org', port=443): Max retries exceeded with url: /bot8154142653:AAH4c34ft-eAat6mln-uL2I7fye9itS79vE/editMessageText?text=%F0%9F%93%9C+%3Cb%3E%D0%98%D1%81%D1%82%D0%BE%D1%80%D0%B8%D1%8F+%D0%BF%D1%80%D0%BE%D1%81%D0%BC%D0%BE%D1%82%D1%80%D0%B0%3C%2Fb%3E%0A%E2%80%A2+%D0%A0%D0%B8%D0%BA+%D0%B8+%D0%9C%D0%BE%D1%80%D1%82%D0%B8+%E2%80%94+%D0%BF%D0%BE%D1%81%D0%BB%D0%B5%D0%B4%D0%BD%D0%B5%D0%B5%3A+2025-12-11+13%3A08%3A42%0A%E2%80%A2+%D0%90%D1%80%D0%BA%D0%B5%D0%B9%D0%BD+%E2%80%94+%D0%BF%D0%BE%D1%81%D0%BB%D0%B5%D0%B4%D0%BD%D0%B5%D0%B5%3A+2025-12-11+11%3A52%3A12%0A%E2%80%A2+%D0%93%D0%B5%D1%80%D0%BE%D0%B8+%D0%AD%D0%BD%D0%B2%D0%B5%D0%BB%D0%B0+%E2%80%94+%D0%BF%D0%BE%D1%81%D0%BB%D0%B5%D0%B4%D0%BD%D0%B5%D0%B5%3A+2025-12-10+14%3A27%3A11%0A&chat_id=1374615669&message_id=3424&parse_mode=HTML&reply_markup=%7B%22inline_keyboard%22%3A+%5B%5B%7B%22text%22%3A+%22%5Cud83d%5Cudcfa+%5Cu0420%5Cu0438%5Cu043a+%5Cu0438+%5Cu041c%5Cu043e%5Cu0440%5Cu0442%5Cu0438%22%2C+%22callback_data%22%3A+%22series%3A1%22%7D%5D%2C+%5B%7B%22text%22%3A+%22%5Cu2705+S4E7+%28%5Cu0417%5Cu0430%5Cu043a%5Cu043e%5Cu043d%5Cu0447%5Cu0438%5Cu043b%5Cu0438+%5Cu0442%5Cu0443%5Cu0442%29%22%2C+%22callback_data%22%3A+%22episode%3A324%22%7D%2C+%7B%22text%22%3A+%22%5Cu27a1%5Cufe0f+S4E8+%28%5Cu0421%5Cu043b%5Cu0435%5Cu0434.%29%22%2C+%22callback_data%22%3A+%22episode%3A323%22%7D%5D%2C+%5B%7B%22text%22%3A+%22%5Cud83d%5Cudcfa+%5Cu0410%5Cu0440%5Cu043a%5Cu0435%5Cu0439%5Cu043d%22%2C+%22callback_data%22%3A+%22series%3A2%22%7D%5D%2C+%5B%7B%22text%22%3A+%22%5Cu2705+S2E6+%28%5Cu0417%5Cu0430%5Cu043a%5Cu043e%5Cu043d%5Cu0447%5Cu0438%5Cu043b%5Cu0438+%5Cu0442%5Cu0443%5Cu0442%29%22%2C+%22callback_data%22%3A+%22episode%3A380%22%7D%2C+%7B%22text%22%3A+%22%5Cu27a1%5Cufe0f+S2E7+%28%5Cu0421%5Cu043b%5Cu0435%5Cu0434.%29%22%2C+%22callback_data%22%3A+%22episode%3A379%22%7D%5D%2C+%5B%7B%22text%22%3A+%22%5Cud83d%5Cudcfa+%5Cu0413%5Cu0435%5Cu0440%5Cu043e%5Cu0438+%5Cu042d%5Cu043d%5Cu0432%5Cu0435%5Cu043b%5Cu0430%22%2C+%22callback_data%22%3A+%22series%3A3%22%7D%5D%2C+%5B%7B%22text%22%3A+%22%5Cu2705+S1E26+%28%5Cu0417%5Cu0430%5Cu043a%5Cu043e%5Cu043d%5Cu0447%5Cu0438%5Cu043b%5Cu0438+%5Cu0442%5Cu0443%5Cu0442%29%22%2C+%22callback_data%22%3A+%22episode%3A396%22%7D%2C+%7B%22text%22%3A+%22%5Cu27a1%5Cufe0f+S2E1+%28%5Cu0421%5Cu043b%5Cu0435%5Cu0434.%29%22%2C+%22callback_data%22%3A+%22episode%3A411%22%7D%5D%2C+%5B%7B%22text%22%3A+%22%5Cu0413%5Cu043b%5Cu0430%5Cu0432%5Cu043d%5Cu043e%5Cu0435+%5Cu043c%5Cu0435%5Cu043d%5Cu044e%22%2C+%22callback_data%22%3A+%22main_menu%22%7D%5D%5D%7D (Caused by ProxyError('Unable to connect to proxy', RemoteDisconnected('Remote end closed connection without response')))
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Dimondrol\Desktop\123\handlers.py", line 363, in callback_continue_watch
+    bot.edit_message_text(text, chat_id, call.message.message_id, reply_markup=markup, parse_mode="HTML")
+  File "C:\Users\Dimondrol\Desktop\123\venv\Lib\site-packages\telebot\__init__.py", line 5349, in edit_message_text
+    result = apihelper.edit_message_text(
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Dimondrol\Desktop\123\venv\Lib\site-packages\telebot\apihelper.py", line 1627, in edit_message_text
+    return _make_request(token, method_url, params=payload, method='post')
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Dimondrol\Desktop\123\venv\Lib\site-packages\telebot\apihelper.py", line 162, in _make_request
+    result = _get_req_session().request(
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Dimondrol\Desktop\123\venv\Lib\site-packages\requests\sessions.py", line 589, in request
+    resp = self.send(prep, **send_kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Dimondrol\Desktop\123\venv\Lib\site-packages\requests\sessions.py", line 703, in send
+    r = adapter.send(request, **kwargs)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Dimondrol\Desktop\123\venv\Lib\site-packages\requests\adapters.py", line 671, in send
+    raise ProxyError(e, request=request)
+requests.exceptions.ProxyError: HTTPSConnectionPool(host='api.telegram.org', port=443): Max retries exceeded with url: /bot8154142653:AAH4c34ft-eAat6mln-uL2I7fye9itS79vE/editMessageText?text=%F0%9F%93%9C+%3Cb%3E%D0%98%D1%81%D1%82%D0%BE%D1%80%D0%B8%D1%8F+%D0%BF%D1%80%D0%BE%D1%81%D0%BC%D0%BE%D1%82%D1%80%D0%B0%3C%2Fb%3E%0A%E2%80%A2+%D0%A0%D0%B8%D0%BA+%D0%B8+%D0%9C%D0%BE%D1%80%D1%82%D0%B8+%E2%80%94+%D0%BF%D0%BE%D1%81%D0%BB%D0%B5%D0%B4%D0%BD%D0%B5%D0%B5%3A+2025-12-11+13%3A08%3A42%0A%E2%80%A2+%D0%90%D1%80%D0%BA%D0%B5%D0%B9%D0%BD+%E2%80%94+%D0%BF%D0%BE%D1%81%D0%BB%D0%B5%D0%B4%D0%BD%D0%B5%D0%B5%3A+2025-12-11+11%3A52%3A12%0A%E2%80%A2+%D0%93%D0%B5%D1%80%D0%BE%D0%B8+%D0%AD%D0%BD%D0%B2%D0%B5%D0%BB%D0%B0+%E2%80%94+%D0%BF%D0%BE%D1%81%D0%BB%D0%B5%D0%B4%D0%BD%D0%B5%D0%B5%3A+2025-12-10+14%3A27%3A11%0A&chat_id=1374615669&message_id=3424&parse_mode=HTML&reply_markup=%7B%22inline_keyboard%22%3A+%5B%5B%7B%22text%22%3A+%22%5Cud83d%5Cudcfa+%5Cu0420%5Cu0438%5Cu043a+%5Cu0438+%5Cu041c%5Cu043e%5Cu0440%5Cu0442%5Cu0438%22%2C+%22callback_data%22%3A+%22series%3A1%22%7D%5D%2C+%5B%7B%22text%22%3A+%22%5Cu2705+S4E7+%28%5Cu0417%5Cu0430%5Cu043a%5Cu043e%5Cu043d%5Cu0447%5Cu0438%5Cu043b%5Cu0438+%5Cu0442%5Cu0443%5Cu0442%29%22%2C+%22callback_data%22%3A+%22episode%3A324%22%7D%2C+%7B%22text%22%3A+%22%5Cu27a1%5Cufe0f+S4E8+%28%5Cu0421%5Cu043b%5Cu0435%5Cu0434.%29%22%2C+%22callback_data%22%3A+%22episode%3A323%22%7D%5D%2C+%5B%7B%22text%22%3A+%22%5Cud83d%5Cudcfa+%5Cu0410%5Cu0440%5Cu043a%5Cu0435%5Cu0439%5Cu043d%22%2C+%22callback_data%22%3A+%22series%3A2%22%7D%5D%2C+%5B%7B%22text%22%3A+%22%5Cu2705+S2E6+%28%5Cu0417%5Cu0430%5Cu043a%5Cu043e%5Cu043d%5Cu0447%5Cu0438%5Cu043b%5Cu0438+%5Cu0442%5Cu0443%5Cu0442%29%22%2C+%22callback_data%22%3A+%22episode%3A380%22%7D%2C+%7B%22text%22%3A+%22%5Cu27a1%5Cufe0f+S2E7+%28%5Cu0421%5Cu043b%5Cu0435%5Cu0434.%29%22%2C+%22callback_data%22%3A+%22episode%3A379%22%7D%5D%2C+%5B%7B%22text%22%3A+%22%5Cud83d%5Cudcfa+%5Cu0413%5Cu0435%5Cu0440%5Cu043e%5Cu0438+%5Cu042d%5Cu043d%5Cu0432%5Cu0435%5Cu043b%5Cu0430%22%2C+%22callback_data%22%3A+%22series%3A3%22%7D%5D%2C+%5B%7B%22text%22%3A+%22%5Cu2705+S1E26+%28%5Cu0417%5Cu0430%5Cu043a%5Cu043e%5Cu043d%5Cu0447%5Cu0438%5Cu043b%5Cu0438+%5Cu0442%5Cu0443%5Cu0442%29%22%2C+%22callback_data%22%3A+%22episode%3A396%22%7D%2C+%7B%22text%22%3A+%22%5Cu27a1%5Cufe0f+S2E1+%28%5Cu0421%5Cu043b%5Cu0435%5Cu0434.%29%22%2C+%22callback_data%22%3A+%22episode%3A411%22%7D%5D%2C+%5B%7B%22text%22%3A+%22%5Cu0413%5Cu043b%5Cu0430%5Cu0432%5Cu043d%5Cu043e%5Cu0435+%5Cu043c%5Cu0435%5Cu043d%5Cu044e%22%2C+%22callback_data%22%3A+%22main_menu%22%7D%5D%5D%7D (Caused by ProxyError('Unable to connect to proxy', RemoteDisconnected('Remote end closed connection without response')))
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Dimondrol\Desktop\123\bot.py", line 132, in on_callback
+    handlers.callback_continue_watch(call, bot)
+  File "C:\Users\Dimondrol\Desktop\123\handlers.py", line 366, in callback_continue_watch
+    utils.clean_chat(chat_id, bot)
+    ^^^^^^^^^^^^^^^^
+AttributeError: module 'utils' has no attribute 'clean_chat'

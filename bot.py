@@ -1,9 +1,9 @@
-# bot.py
 import os
 import datetime
 from datetime import timezone
 from collections import defaultdict
 import threading
+from types import SimpleNamespace
 from dotenv import load_dotenv
 import telebot
 from telebot import types
@@ -22,7 +22,16 @@ db.init_db()
 if not db.get_all_series():
     db.dump_sample_data()
 
+utils.reset_state()
+
 bot = telebot.TeleBot(BOT_TOKEN, parse_mode="HTML")
+bot.set_my_commands([
+    telebot.types.BotCommand("start", "Запуск"),
+    telebot.types.BotCommand("menu", "Главное меню"),
+    telebot.types.BotCommand("history", "История просмотра"),
+    telebot.types.BotCommand("favorites", "Избранное"),
+    telebot.types.BotCommand("backup", "Бэкап (админ)"),
+])
 
 album_storage = defaultdict(list)
 album_timers = {}
@@ -34,8 +43,25 @@ def get_menu_button():
 
 @bot.message_handler(commands=["start"])
 def on_start(message):
-    handlers.handle_start(message, bot)
     bot.send_message(message.chat.id, "Используйте кнопку ниже:", reply_markup=get_menu_button())
+
+@bot.message_handler(commands=["menu"])
+def cmd_menu(message):
+    handlers.send_main(message.chat.id, bot)
+
+@bot.message_handler(commands=["history"])
+def cmd_history(message):
+    fake_call = SimpleNamespace(message=message, from_user=message.from_user)
+    handlers.callback_continue_watch(fake_call, bot)
+
+@bot.message_handler(commands=["favorites"])
+def cmd_favorites(message):
+    fake_call = SimpleNamespace(message=message, from_user=message.from_user)
+    handlers.callback_favorites(fake_call, bot)
+
+@bot.message_handler(func=lambda message: message.text == "Главное меню")
+def on_main_menu_button(message):
+    handlers.handle_start(message, bot)
 
 @bot.message_handler(commands=["add"])
 def cmd_add(message):
@@ -88,6 +114,12 @@ def on_callback(call):
             handlers.callback_episode_range(call, bot, int(parts[1]), int(parts[2]), int(parts[3]))
         elif data.startswith("update_series_title:"):
             handlers.cmd_update_series_title(call, bot, int(data.split(":")[1]))
+        elif data.startswith("update_series_description:"):
+            handlers.start_update_series_description(call, bot, int(data.split(":")[1]))
+        elif data.startswith("update_series_poster:"):
+            handlers.start_update_series_poster(call, bot, int(data.split(":")[1]))
+        elif data.startswith("delete_series_poster:"):
+            handlers.delete_series_poster(call, bot, int(data.split(":")[1]))
         elif data.startswith(("update_season_number:", "update_season_num:")):
             handlers.start_update_season_num(call, bot, int(data.split(":")[1]))
         elif data.startswith(("update_episode_number:", "update_ep_num:")):
@@ -145,6 +177,9 @@ def catch_all_text(message):
             return
         if action == "update_season_num":
             handlers.process_update_season_num(message, bot)
+            return
+        if action == "update_series_description":
+            handlers.process_update_series_description(message, bot)
             return
 
     if text.lower() == "/backup" and admin.is_admin(message.from_user.id):
@@ -284,10 +319,13 @@ def handle_media(message):
     else:
         process_single_file(message)
 
+@bot.message_handler(content_types=['photo'])
+def handle_photo(message):
+    pending = utils.get_pending(message.chat.id)
+    if pending and pending.get("action") == "update_series_poster":
+        handlers.process_update_series_poster(message, bot)
+
 if __name__ == "__main__":
     print("Bot started...")
     bot.infinity_polling()
-
-@bot.message_handler(func=lambda message: message.text == "Главное меню")
-def on_main_menu_button(message):
-    handlers.handle_start(message, bot)
+ 

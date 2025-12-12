@@ -17,6 +17,12 @@ pending_actions = {}  # chat_id -> dict with pending flow info
 last_bot_message = {}  # chat_id -> message_id (so we can delete previous info message)
 last_video_message = {}  # chat_id -> message_id (for deleting previous video/document)
 
+def reset_state():
+    """Сбрасываем in-memory состояния при старте процесса."""
+    pending_actions.clear()
+    last_bot_message.clear()
+    last_video_message.clear()
+
 def set_pending(chat_id: int, data: dict, key: str = "default"):
     if chat_id not in pending_actions:
         pending_actions[chat_id] = {}
@@ -76,6 +82,51 @@ def fetch_tmdb_ru_title(series_title: str, season: int, episode: int) -> str:
         logger.warning(f"TMDB fetch failed: {e}")
     return None
 
+def fetch_tmdb_description(series_title: str) -> str:
+    """
+    Возвращает русское описание сериала из TMDB.
+    """
+    api_key = os.getenv("TMDB_API_KEY")
+    if not api_key:
+        return None
+    try:
+        resp = requests.get(
+            "https://api.themoviedb.org/3/search/tv",
+            params={"api_key": api_key, "language": "ru-RU", "query": series_title},
+            timeout=5,
+        )
+        data = resp.json()
+        if not data.get("results"):
+            return None
+        overview = data["results"][0].get("overview")
+        return overview.strip() if overview else None
+    except Exception as e:
+        logger.warning(f"TMDB desc fetch failed: {e}")
+    return None
+
+def format_watch_date(dt_str: str, timezone_offset: int = 3) -> str:
+    """
+    Форматирует дату просмотра в формат: время дата (например: 13:08 11.12.25)
+    timezone_offset - смещение часового пояса от UTC (по умолчанию +3 для Москвы)
+    """
+    try:
+        from datetime import datetime, timezone, timedelta
+        # Парсим дату из строки (формат из БД: 'YYYY-MM-DD HH:MM:SS')
+        dt = datetime.strptime(dt_str, "%Y-%m-%d %H:%M:%S")
+        # Если дата без timezone info, считаем её UTC
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        
+        # Применяем смещение часового пояса
+        user_tz = timezone(timedelta(hours=timezone_offset))
+        dt_local = dt.astimezone(user_tz)
+        
+        # Форматируем: время дата (13:08 11.12.25)
+        return dt_local.strftime("%H:%M %d.%m.%y")
+    except Exception as e:
+        logger.warning(f"Date format error: {e}")
+        return dt_str
+
 # Улучшенный парсер имени файла с поддержкой русских/смешанных названий
 def parse_file_name(file_name: str) -> Dict:
     # Telegram заменяет пробелы на подчёркивания — вернём их
@@ -118,3 +169,4 @@ def parse_file_name(file_name: str) -> Dict:
         return {"season": season, "episode": episode, "title": title}
 
     return {}
+ 
