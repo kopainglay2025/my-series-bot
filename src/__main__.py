@@ -36,8 +36,8 @@ async def boot():
         LOGGER(__name__).error(f"Failed to check admin status: {type(ex).__name__}")
         return
 
-   # for module in ALL_MODULES:
-       # importlib.import_module(f"src.modules.{module}")
+    for module in ALL_MODULES:
+        importlib.import_module(f"src.modules.{module}")
 
     try:
         await idle()
