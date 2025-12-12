@@ -36,7 +36,30 @@ BUTTONS0 = {}
 BUTTONS1 = {}
 BUTTONS2 = {}
 SPELL_CHECK = {}
+class MockLogger:
+    def exception(self, *args): pass
+logger = MockLogger()
 
+# Constants and Mocks (assuming these exist in the user's actual environment)
+class MockClass:
+    def __init__(self):
+        self.U_NAME = "MyBotUsername"
+        self.B_LINK = "https://t.me/MyBot"
+        self.GETALL = {}
+        self.SHORT = {}
+        self.IMDB_CAP = {}
+        self.IMDB_TEMPLATE_TXT = """
+✨ **{title}** ({year})
+━━━━━━━━━━━━━━
+👤 **Cast:** {cast}
+⏱️ **Runtime:** {runtime}
+⭐ **Rating:** {rating}/10 ({votes} votes)
+🎬 **Genres:** {genres}
+🌎 **Countries:** {countries}
+🗣️ **Languages:** {languages}
+📜 **Plot:** {plot}
+"""
+temp = MockClass()
 
 @Client.on_message(filters.group & filters.text & filters.incoming)
 async def give_filter(client, message):
