@@ -11,21 +11,16 @@ from pyrogram.file_id import FileId
 from src.database import db, instance 
 from config import COLLECTION_NAME 
 
-# --- Document Fix ---
 @instance.register
 class Media(Document):
-    # FIX: Explicitly use _id as the primary key field. It is automatically 
-    # required, but we make it StrField to match the Telegram ID.
-    _id = fields.StrField(required=True) # This maps to the MongoDB _id
-    
-    # file_id attribute is now removed, the ID will be accessed via file._id
-    
-    file_ref = fields.StrField(allow_none=True)
-    file_name = fields.StrField(required=True)
-    file_size = fields.IntField(required=True)
-    file_type = fields.StrField(allow_none=True)
-    mime_type = fields.StrField(allow_none=True)
-    caption = fields.StrField(allow_none=True)
+    file_id = fields.StringField(attribute='_id', required=True)
+    file_ref = fields.StringField(allow_none=True)
+    file_name = fields.StringField(required=True)
+    file_size = fields.IntegerField(required=True)
+    file_type = fields.StringField(allow_none=True)
+    mime_type = fields.StringField(allow_none=True)
+    caption = fields.StringField(allow_none=True)
+
     class Meta:
         indexes = ('$file_name', )
         collection_name = COLLECTION_NAME
