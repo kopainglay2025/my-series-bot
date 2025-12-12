@@ -9,23 +9,20 @@ from src.database import db, instance
 from config import COLLECTION_NAME
 
 
+
+
 @instance.register
 class Media(Document):
-    # file_id stored as string
-    file_id = fields.StrField(allow_none=False)  # required replacement
-
+    file_id = fields.StrField(attribute='_id')
     file_ref = fields.StrField(allow_none=True)
-    file_name = fields.StrField(allow_none=False)  # required replacement
-    file_size = fields.IntField(allow_none=False)
+    file_name = fields.StrField(required=True)
+    file_size = fields.IntField(required=True)
+    file_type = fields.StrField(allow_none=True)
     mime_type = fields.StrField(allow_none=True)
     caption = fields.StrField(allow_none=True)
-    file_type = fields.StrField(allow_none=True)
-
     class Meta:
-        indexes = ('$file_name',)
+        indexes = ('$file_name', )
         collection_name = COLLECTION_NAME
-
-
 
 # -------------------------------
 # Database Utilities
