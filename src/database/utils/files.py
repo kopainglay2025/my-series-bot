@@ -11,11 +11,12 @@ from config import COLLECTION_NAME
 
 @instance.register
 class Media(Document):
-    # MongoDB will auto-generate _id
-    file_id = fields.StrField(required=True)  # your own file_id string
+    # file_id stored as string
+    file_id = fields.StrField(allow_none=False)  # required replacement
+
     file_ref = fields.StrField(allow_none=True)
-    file_name = fields.StrField(required=True)
-    file_size = fields.IntField(required=True)
+    file_name = fields.StrField(allow_none=False)  # required replacement
+    file_size = fields.IntField(allow_none=False)
     mime_type = fields.StrField(allow_none=True)
     caption = fields.StrField(allow_none=True)
     file_type = fields.StrField(allow_none=True)
@@ -23,6 +24,7 @@ class Media(Document):
     class Meta:
         indexes = ('$file_name',)
         collection_name = COLLECTION_NAME
+
 
 
 # -------------------------------
