@@ -10,9 +10,12 @@ from config import COLLECTION_NAME
 
 from umongo import Document, fields
 
+from umongo import Document, fields
+
 @instance.register
 class Media(Document):
-    file_id = fields.ObjectIdField(attribute='_id', required=True)
+    _id = fields.ObjectIdField(allow_none=True)  # let Mongo handle it
+
     file_ref = fields.StrField(allow_none=True)
     file_name = fields.StrField(required=True)
     file_size = fields.IntField(required=True)
@@ -23,6 +26,7 @@ class Media(Document):
     class Meta:
         indexes = ('$file_name',)
         collection_name = COLLECTION_NAME
+
 
 
 
