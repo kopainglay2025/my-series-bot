@@ -8,19 +8,25 @@ from pyrogram.file_id import FileId
 from src.database import db, instance
 from config import COLLECTION_NAME
 
+# --- FIX START ---
 @instance.register
 class Media(Document):
-    file_id = fields.StringField(attribute='_id', required=True)
-    file_ref = fields.StringField(allow_none=True)
-    file_name = fields.StringField(required=True)
-    file_size = fields.IntegerField(required=True)
-    file_type = fields.StringField(allow_none=True)
-    mime_type = fields.StringField(allow_none=True)
-    caption = fields.StringField(allow_none=True)
-
+    # FIX: The original line 'file_id = fields.StrField(attribute='_id')' caused the AttributeError.
+    # We remove 'attribute='_id'' to avoid Umongo's internal conflict.
+    # We will now use '_id' in the constructor of save_file for the primary key.
+    # We keep 'file_id' as a regular string field for consistency if needed.
+    file_id = fields.StrField() 
+    
+    file_ref = fields.StrField(allow_none=True)
+    file_name = fields.StrField(required=True)
+    file_size = fields.IntField(required=True)
+    file_type = fields.StrField(allow_none=True)
+    mime_type = fields.StrField(allow_none=True)
+    caption = fields.StrField(allow_none=True)
     class Meta:
         indexes = ('$file_name', )
         collection_name = COLLECTION_NAME
+# --- FIX END ---
 
 
 # -------------------------------
@@ -35,6 +41,7 @@ async def get_files_db_size():
         return 0
 
 
+# --- FIX START ---
 async def save_file(media):
     """Save a Media object to MongoDB."""
     file_id, file_ref = unpack_new_file_id(media.file_id)
@@ -45,6 +52,9 @@ async def save_file(media):
 
     try:
         file = Media(
+            # FIX: Explicitly setting the MongoDB primary key using '_id'.
+            _id=file_id,
+            # Setting the file_id field as well, which is now a regular field.
             file_id=file_id,
             file_ref=file_ref,
             file_name=file_name_clean,
@@ -62,6 +72,7 @@ async def save_file(media):
         return 'dup'
     except Exception:
         return 'err'
+# --- FIX END ---
 
 
 async def search_files(query, max_results=8, offset=0, lang=None):
@@ -124,7 +135,8 @@ async def get_bad_files(query, file_type=None):
 async def get_file_details(file_id):
     """Get a file by its file_id."""
     try:
-        return await Media.find({'file_id': file_id}).to_list(length=1)
+        # Searching by file_id which is now the _id primary key
+        return await Media.find({'_id': file_id}).to_list(length=1)
     except Exception:
         return []
 
