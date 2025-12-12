@@ -215,7 +215,8 @@ async def save_file(media):
     logger.info(f"[SUCCESS] '{file_name}' saved to {target_db} DB.")
     return True, 1
 
-async def get_search_results(chat_id, query, file_type=None, max_results=None, offset=0, filter=False):
+
+async def get_search_results(chat_id, query, file_type=None, max_results=None, filter=False, offset=0):
     if chat_id is not None:
         settings = await get_settings(int(chat_id))
         if max_results is None:
@@ -314,7 +315,7 @@ async def get_search_results(chat_id, query, file_type=None, max_results=None, o
 
     return files, next_offset, total_results
 
-async def get_series_episode_groups(chat_id, query, file_type=None, filter=False, offset=0) -> Dict[str, List[Media]]:
+async def get_series_episode_groups(chat_id, query, file_type=None, max_results=None, filter=False, offset=0) -> Dict[str, List[Media]]:
     """
     Retrieves all search results matching the query and groups them by episode (SXX EYY).
     
