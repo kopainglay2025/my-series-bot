@@ -1,3 +1,5 @@
+# The content of src/database/utils/files.py after the fix
+
 import re
 import base64
 from struct import pack
@@ -5,17 +7,18 @@ from pymongo.errors import DuplicateKeyError
 from umongo import Document, fields
 from marshmallow.exceptions import ValidationError
 from pyrogram.file_id import FileId
-from src.database import db, instance
-from config import COLLECTION_NAME
+# Assuming src.database is correctly configured
+from src.database import db, instance 
+from config import COLLECTION_NAME 
 
-# --- FIX START ---
+# --- Document Fix ---
 @instance.register
 class Media(Document):
-    # FIX: The original line 'file_id = fields.StrField(attribute='_id')' caused the AttributeError.
-    # We remove 'attribute='_id'' to avoid Umongo's internal conflict.
-    # We will now use '_id' in the constructor of save_file for the primary key.
-    # We keep 'file_id' as a regular string field for consistency if needed.
-    file_id = fields.StrField() 
+    # FIX: Explicitly use _id as the primary key field. It is automatically 
+    # required, but we make it StrField to match the Telegram ID.
+    _id = fields.StrField(required=True) # This maps to the MongoDB _id
+    
+    # file_id attribute is now removed, the ID will be accessed via file._id
     
     file_ref = fields.StrField(allow_none=True)
     file_name = fields.StrField(required=True)
@@ -26,8 +29,6 @@ class Media(Document):
     class Meta:
         indexes = ('$file_name', )
         collection_name = COLLECTION_NAME
-# --- FIX END ---
-
 
 # -------------------------------
 # Database Utilities
@@ -41,7 +42,6 @@ async def get_files_db_size():
         return 0
 
 
-# --- FIX START ---
 async def save_file(media):
     """Save a Media object to MongoDB."""
     file_id, file_ref = unpack_new_file_id(media.file_id)
@@ -52,10 +52,8 @@ async def save_file(media):
 
     try:
         file = Media(
-            # FIX: Explicitly setting the MongoDB primary key using '_id'.
-            _id=file_id,
-            # Setting the file_id field as well, which is now a regular field.
-            file_id=file_id,
+            # FIX: We now use _id in the constructor to set the primary key
+            _id=file_id, 
             file_ref=file_ref,
             file_name=file_name_clean,
             file_size=media.file_size,
@@ -72,7 +70,6 @@ async def save_file(media):
         return 'dup'
     except Exception:
         return 'err'
-# --- FIX END ---
 
 
 async def search_files(query, max_results=8, offset=0, lang=None):
@@ -135,8 +132,8 @@ async def get_bad_files(query, file_type=None):
 async def get_file_details(file_id):
     """Get a file by its file_id."""
     try:
-        # Searching by file_id which is now the _id primary key
-        return await Media.find({'_id': file_id}).to_list(length=1)
+        # FIX: Search by the _id field, which now holds the file_id string
+        return await Media.find({'_id': file_id}).to_list(length=1) 
     except Exception:
         return []
 
