@@ -8,14 +8,11 @@ from pyrogram.file_id import FileId
 from src.database import db, instance
 from config import COLLECTION_NAME
 
-from umongo import Document, fields
-
-from umongo import Document, fields
 
 @instance.register
 class Media(Document):
-    _id = fields.ObjectIdField(allow_none=True)  # let Mongo handle it
-
+    # MongoDB will auto-generate _id
+    file_id = fields.StrField(required=True)  # your own file_id string
     file_ref = fields.StrField(allow_none=True)
     file_name = fields.StrField(required=True)
     file_size = fields.IntField(required=True)
@@ -28,25 +25,31 @@ class Media(Document):
         collection_name = COLLECTION_NAME
 
 
-
-
+# -------------------------------
+# Database Utilities
+# -------------------------------
 async def get_files_db_size():
+    """Return total data size of database in bytes."""
     try:
         stats = await db.command("dbstats")
-        return stats['dataSize']
+        return stats.get('dataSize', 0)
     except Exception:
         return 0
 
 
 async def save_file(media):
+    """Save a Media object to MongoDB."""
     file_id, file_ref = unpack_new_file_id(media.file_id)
-    file_name = re.sub(r"(_|\-|\.|\+)", " ", str(media.file_name))
+    if not file_id:
+        return 'err'
+
+    file_name_clean = re.sub(r"(_|\-|\.|\+)", " ", str(media.file_name))
 
     try:
         file = Media(
             file_id=file_id,
             file_ref=file_ref,
-            file_name=file_name,
+            file_name=file_name_clean,
             file_size=media.file_size,
             mime_type=media.mime_type,
             caption=media.caption.html if media.caption else None,
@@ -57,34 +60,33 @@ async def save_file(media):
 
     except ValidationError:
         return 'err'
-
     except DuplicateKeyError:
         return 'dup'
-
     except Exception:
         return 'err'
 
 
-async def search_files(query, max_results=8, offset=0, lang=None):  
-    query = query.strip()  
+async def search_files(query, max_results=8, offset=0, lang=None):
+    """Search media by name with optional language filter."""
+    query = query.strip()
     raw_pattern = (
         r'(\b|[\.\+\-_])' + query + r'(\b|[\.\+\-_])'
         if ' ' not in query else
         query.replace(' ', r'.*[\s\.\+\-_]')
     )
 
-    try:  
-        regex = re.compile(raw_pattern, flags=re.IGNORECASE)  
-    except Exception:  
-        regex = query  
+    try:
+        regex = re.compile(raw_pattern, flags=re.IGNORECASE)
+    except Exception:
+        regex = query
 
-    filter_criteria = {'file_name': regex}  
-    cursor = Media.find(filter_criteria).sort('$natural', -1)  
+    filter_criteria = {'file_name': regex}
+    cursor = Media.find(filter_criteria).sort('$natural', -1)
 
-    if lang:  
+    if lang:
         lang_files = [
             file async for file in cursor
-            if "file_name" in file and lang in file["file_name"].lower()
+            if "file_name" in file and lang.lower() in file["file_name"].lower()
         ]
         return (
             lang_files[offset:][:max_results],
@@ -92,14 +94,15 @@ async def search_files(query, max_results=8, offset=0, lang=None):
             len(lang_files)
         )
 
-    files = await cursor.skip(offset).limit(max_results).to_list(length=max_results)  
-    total_results = await Media.count_documents(filter_criteria)  
-    next_offset = offset + max_results if offset + max_results < total_results else ''  
+    files = await cursor.skip(offset).limit(max_results).to_list(length=max_results)
+    total_results = await Media.count_documents(filter_criteria)
+    next_offset = offset + max_results if offset + max_results < total_results else ''
 
     return files, next_offset, total_results
 
 
 async def get_bad_files(query, file_type=None):
+    """Search files with exact filter, optionally by type."""
     query = query.strip()
     raw_pattern = (
         r'(\b|[\.\+\-_])' + query + r'(\b|[\.\+\-_])'
@@ -121,12 +124,16 @@ async def get_bad_files(query, file_type=None):
 
 
 async def get_file_details(file_id):
+    """Get a file by its file_id."""
     try:
         return await Media.find({'file_id': file_id}).to_list(length=1)
     except Exception:
         return []
 
 
+# -------------------------------
+# Pyrogram FileId encoding utils
+# -------------------------------
 def encode_file_id(s: bytes) -> str:
     r, n = b"", 0
     for i in s + bytes([22, 4]):
@@ -156,6 +163,7 @@ def unpack_new_file_id(new_file_id):
 
 
 def formate_file_name(file_name):
+    """Clean up file name by removing unwanted prefixes."""
     return ' '.join(
         filter(
             lambda x: not x.startswith('[') and not x.startswith('@') and not x.startswith('www.'),
